@@ -75,7 +75,6 @@
                     <input type="file" id="image-loader" class="hidden" accept="image/*">
                 </div>
 
-                <!-- *** NUEVO: Selector de Herramientas *** -->
                 <div class="bg-white p-6 rounded-lg shadow-md">
                     <h2 class="text-xl font-bold text-slate-800 mb-4">2. Herramientas</h2>
                     <div class="flex rounded-md shadow-sm">
@@ -84,7 +83,6 @@
                     </div>
                 </div>
                 
-                <!-- Controles de Medición -->
                 <div id="measure-controls" class="bg-white p-6 rounded-lg shadow-md space-y-4">
                     <h3 class="text-lg font-semibold text-slate-700">Color de Medida</h3>
                     <div id="color-palette" class="flex justify-center gap-4">
@@ -96,7 +94,7 @@
                     </div>
                 </div>
 
-                <!-- *** NUEVO: Controles del Pincel *** -->
+                <!-- Controles del Pincel -->
                 <div id="brush-controls" class="bg-white p-6 rounded-lg shadow-md space-y-4 hidden">
                     <div>
                         <h3 class="text-lg font-semibold text-slate-700 mb-2">Color de Pincel</h3>
@@ -159,7 +157,6 @@
         const measurementInput = document.getElementById('measurement-input');
         const submitBtn = document.getElementById('submit-btn');
         const cancelBtn = document.getElementById('cancel-btn');
-        // Nuevos elementos
         const toolMeasureBtn = document.getElementById('tool-measure');
         const toolBrushBtn = document.getElementById('tool-brush');
         const measureControls = document.getElementById('measure-controls');
@@ -177,8 +174,7 @@
         let startX, startY, endX, endY;
         let measureColor = '#000000';
         let hoveredMeasurementIndex = -1;
-        // Nuevos estados
-        let currentTool = 'measure'; // 'measure' o 'brush'
+        let currentTool = 'measure';
         let brushColor = '#FFFFFF';
         let brushSize = 20;
         
@@ -211,25 +207,77 @@
             downloadBtn.addEventListener('click', downloadImage);
             resetBtn.addEventListener('click', clearAll);
             
-            // Listeners de controles
             colorPalette.addEventListener('click', selectMeasureColor);
             toolMeasureBtn.addEventListener('click', () => switchTool('measure'));
             toolBrushBtn.addEventListener('click', () => switchTool('brush'));
-            brushColorPicker.addEventListener('input', (e) => brushColor = e.target.value);
+            
+            brushColorPicker.addEventListener('input', (e) => {
+                brushColor = e.target.value;
+                updateCursor();
+            });
             brushSizeSlider.addEventListener('input', (e) => {
                 brushSize = e.target.value;
                 brushSizeValue.textContent = brushSize;
+                updateCursor();
             });
 
-            // Listeners del modal
             submitBtn.addEventListener('click', submitMeasurement);
             cancelBtn.addEventListener('click', cancelMeasurement);
             measurementInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') submitMeasurement();
                 if (e.key === 'Escape') cancelMeasurement();
             });
+
+            // *** CORRECCIÓN: Actualizar cursor si la ventana cambia de tamaño ***
+            window.addEventListener('resize', updateCursor);
         }
         
+        // --- FUNCIÓN CORREGIDA: Crear un cursor dinámico para el pincel ---
+        function updateBrushCursor() {
+            // Obtener el tamaño de visualización actual del canvas para calcular la escala
+            const rect = canvas.getBoundingClientRect();
+            // Si el ancho es 0, no hacer nada (evita errores si el canvas está oculto)
+            if (rect.width === 0) return;
+
+            const scale = rect.width / CANVAS_WIDTH; // p.ej. 600px display / 1000px lógicos = 0.6
+
+            // El tamaño del cursor en píxeles CSS debe ser el tamaño del pincel escalado
+            const scaledSize = Math.max(parseInt(brushSize) * scale, 1);
+
+            const cursorCanvas = document.createElement('canvas');
+            const cursorCtx = cursorCanvas.getContext('2d');
+            
+            // El canvas para el cursor se basa en el tamaño escalado
+            const canvasSize = scaledSize + 4; // Añadir padding para un borde
+            cursorCanvas.width = canvasSize;
+            cursorCanvas.height = canvasSize;
+            
+            const center = canvasSize / 2;
+
+            // Borde exterior para visibilidad en fondos claros y oscuros
+            cursorCtx.beginPath();
+            cursorCtx.arc(center, center, scaledSize / 2, 0, 2 * Math.PI);
+            cursorCtx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+            cursorCtx.lineWidth = 2.5;
+            cursorCtx.stroke();
+            
+            cursorCtx.beginPath();
+            cursorCtx.arc(center, center, scaledSize / 2, 0, 2 * Math.PI);
+            cursorCtx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+            cursorCtx.lineWidth = 1;
+            cursorCtx.stroke();
+
+
+            // Relleno con el color del pincel
+            cursorCtx.beginPath();
+            cursorCtx.arc(center, center, scaledSize / 2, 0, 2 * Math.PI);
+            cursorCtx.fillStyle = brushColor;
+            cursorCtx.fill();
+
+            const dataURL = cursorCanvas.toDataURL();
+            canvas.style.cursor = `url(${dataURL}) ${center} ${center}, crosshair`;
+        }
+
         function switchTool(tool) {
             currentTool = tool;
             if (tool === 'measure') {
@@ -237,14 +285,13 @@
                 toolBrushBtn.classList.remove('active');
                 measureControls.style.display = 'block';
                 brushControls.style.display = 'none';
-                updateCursor();
             } else { // brush
                 toolBrushBtn.classList.add('active');
                 toolMeasureBtn.classList.remove('active');
                 brushControls.style.display = 'block';
                 measureControls.style.display = 'none';
-                updateCursor();
             }
+            updateCursor();
         }
 
         function updateCursor() {
@@ -255,12 +302,10 @@
             if (currentTool === 'measure') {
                 canvas.style.cursor = hoveredMeasurementIndex !== -1 ? 'pointer' : 'crosshair';
             } else { // brush
-                // Podríamos usar un cursor de pincel personalizado, pero por ahora usamos 'crosshair'
-                canvas.style.cursor = 'crosshair';
+                updateBrushCursor();
             }
         }
         
-        // --- MANEJO DE IMAGEN ---
         function handleImageUpload(e) { const file = e.target.files[0]; if (file) loadImage(file); }
         function handleDragOver(e) { e.preventDefault(); e.stopPropagation(); canvasContainer.classList.add('drag-over'); }
         function handleDragLeave(e) { e.preventDefault(); e.stopPropagation(); canvasContainer.classList.remove('drag-over'); }
@@ -291,7 +336,6 @@
             updateCursor();
         }
 
-        // --- LÓGICA DE EVENTOS DEL CANVAS ---
         function getMousePos(e) {
             const rect = canvas.getBoundingClientRect();
             return { x: (e.clientX - rect.left) * (CANVAS_WIDTH / rect.width), y: (e.clientY - rect.top) * (CANVAS_HEIGHT / rect.height) };
@@ -324,11 +368,14 @@
                     redrawCanvas();
                     drawMeasurementLine({startX, startY, endX, endY, color: measureColor});
                 } else { // brush
-                    currentPath.push({ x: pos.x, y: pos.y });
-                    redrawCanvas(); // Dibuja el trazo actual en tiempo real
+                    if (e.shiftKey && currentPath.length > 0) {
+                        currentPath = [currentPath[0], { x: pos.x, y: pos.y }];
+                    } else {
+                        currentPath.push({ x: pos.x, y: pos.y });
+                    }
+                    redrawCanvas();
                 }
             } else if (currentTool === 'measure') {
-                // Lógica de HOVER para medidas
                 let newHoverIndex = -1;
                 for (let i = measurements.length - 1; i >= 0; i--) {
                     const m = measurements[i];
@@ -399,7 +446,6 @@
             return Math.hypot(px - closestX, py - closestY);
         }
 
-        // --- MODAL ---
         function showModal() { modal.style.display = 'flex'; measurementInput.value = ''; measurementInput.focus(); }
         function hideModal() { modal.style.display = 'none'; }
         function submitMeasurement() {
@@ -410,7 +456,6 @@
         }
         function cancelMeasurement() { hideModal(); redrawCanvas(); }
 
-        // --- FUNCIONES DE RENDERIZADO ---
         function clearCanvas() {
             ctx.fillStyle = '#FFFFFF';
             ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -428,13 +473,11 @@
                 ctx.drawImage(image, 0, 0, image.width, image.height, centerShiftX, centerShiftY, image.width * ratio, image.height * ratio);
             }
             
-            // Dibujar trazos de pincel
             brushStrokes.forEach(drawBrushStroke);
             if (isDrawing && currentTool === 'brush' && currentPath.length > 0) {
                  drawBrushStroke({ points: currentPath, color: brushColor, size: brushSize });
             }
 
-            // Dibujar medidas
             measurements.forEach((m, index) => drawMeasurementLine(m, index));
         }
         
@@ -516,7 +559,6 @@
             }
         }
 
-        // --- FUNCIONES DE CONTROLES ---
         function selectMeasureColor(e) {
             if (e.target.classList.contains('color-swatch')) {
                 colorPalette.querySelectorAll('.color-swatch').forEach(swatch => swatch.classList.remove('selected'));
@@ -541,7 +583,6 @@
             redrawCanvas();
         }
 
-        // --- INICIAR LA APLICACIÓN ---
         init();
     </script>
 </body>
