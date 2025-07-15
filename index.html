@@ -126,8 +126,7 @@
                 <div id="canvas-container" class="bg-white rounded-lg shadow-md flex items-center justify-center relative">
                     <canvas id="canvas" width="1000" height="1000"></canvas>
                     <div id="placeholder-text" class="absolute text-center text-slate-400 p-4 pointer-events-none">
-                        <!-- *** TEXTO ACTUALIZADO *** -->
-                        <p class="text-lg font-semibold">Haz clic o arrastra una imagen aquí</p>
+                        <p class="text-lg font-semibold">Arrastra y suelta una imagen aquí</p>
                     </div>
                 </div>
             </div>
@@ -180,6 +179,7 @@
         let currentTool = 'measure';
         let brushColor = '#FFFFFF';
         let brushSize = 20;
+        // *** NUEVO: Estados para pincel y visualizador ***
         let lastBrushPoint = null;
         let currentMousePos = null;
 
@@ -202,14 +202,13 @@
             canvasContainer.addEventListener('dragover', handleDragOver);
             canvasContainer.addEventListener('dragleave', handleDragLeave);
             canvasContainer.addEventListener('drop', handleDrop);
-            // *** NUEVO: Evento de clic en el contenedor del canvas ***
-            canvasContainer.addEventListener('click', handleCanvasContainerClick);
             
             canvas.addEventListener('mousedown', handleMouseDown);
             canvas.addEventListener('mousemove', handleMouseMove);
             canvas.addEventListener('mouseup', handleMouseUp);
             canvas.addEventListener('mouseleave', handleMouseLeave);
-            
+            canvas.addEventListener('click', handleClick);
+
             downloadBtn.addEventListener('click', downloadImage);
             resetBtn.addEventListener('click', clearAll);
             
@@ -220,7 +219,7 @@
             brushSizeSlider.addEventListener('input', (e) => {
                 brushSize = e.target.value;
                 brushSizeValue.textContent = brushSize;
-                redrawCanvas();
+                redrawCanvas(); // Actualizar visualizador de pincel
             });
 
             submitBtn.addEventListener('click', submitMeasurement);
@@ -233,7 +232,7 @@
         
         function switchTool(tool) {
             currentTool = tool;
-            lastBrushPoint = null;
+            lastBrushPoint = null; // Reiniciar punto de línea recta al cambiar de herramienta
             if (tool === 'measure') {
                 toolMeasureBtn.classList.add('active');
                 toolBrushBtn.classList.remove('active');
@@ -249,11 +248,11 @@
         }
 
         function updateCursor() {
-            if (!image) { canvas.style.cursor = 'pointer'; return; } // Cursor de puntero si no hay imagen
+            if (!image) { canvas.style.cursor = 'default'; return; }
             if (currentTool === 'measure') {
                 canvas.style.cursor = hoveredMeasurementIndex !== -1 ? 'pointer' : 'crosshair';
             } else { // brush
-                canvas.style.cursor = 'none';
+                canvas.style.cursor = 'none'; // Ocultar cursor para mostrar el visualizador
             }
         }
         
@@ -265,13 +264,6 @@
             e.preventDefault(); e.stopPropagation(); canvasContainer.classList.remove('drag-over');
             const file = e.dataTransfer.files[0];
             if (file && file.type.startsWith('image/')) loadImage(file);
-        }
-        
-        // *** NUEVO: Función para manejar el clic en el contenedor ***
-        function handleCanvasContainerClick() {
-            if (!image) {
-                imageLoader.click();
-            }
         }
 
         function loadImage(file) {
@@ -303,26 +295,15 @@
 
         function handleMouseDown(e) {
             if (!image) return;
-            // Prevenir que el clic en el canvas active la subida de archivos si ya hay una imagen
-            e.stopPropagation(); 
             const pos = getMousePos(e);
             
             if (currentTool === 'measure') {
-                if (hoveredMeasurementIndex !== -1) {
-                    // Si se hace clic en un botón de borrar, manejarlo aquí
-                    const m = measurements[hoveredMeasurementIndex];
-                    const buttonPos = getDeleteButtonPosition(m);
-                    if (Math.hypot(pos.x - buttonPos.x, pos.y - buttonPos.y) <= DELETE_BUTTON_RADIUS) {
-                        measurements.splice(hoveredMeasurementIndex, 1);
-                        hoveredMeasurementIndex = -1;
-                        redrawCanvas();
-                        return;
-                    }
-                }
+                if (hoveredMeasurementIndex !== -1) return;
                 isDrawing = true;
                 startX = pos.x;
                 startY = pos.y;
             } else { // brush
+                // *** Lógica de Shift-Click para líneas rectas ***
                 if (e.shiftKey) {
                     if (lastBrushPoint) {
                         brushStrokes.push({ points: [lastBrushPoint, pos], color: brushColor, size: brushSize });
@@ -331,7 +312,7 @@
                     lastBrushPoint = pos;
                 } else {
                     isDrawing = true;
-                    lastBrushPoint = null;
+                    lastBrushPoint = null; // Romper la cadena de líneas rectas
                     currentPath = [pos];
                 }
             }
@@ -352,26 +333,7 @@
                 }
                 redrawCanvas();
             } else {
-                if(currentTool === 'measure') {
-                    // Lógica de HOVER para medidas
-                    let newHoverIndex = -1;
-                    for (let i = measurements.length - 1; i >= 0; i--) {
-                        const m = measurements[i];
-                        const buttonPos = getDeleteButtonPosition(m);
-                        if (Math.hypot(currentMousePos.x - buttonPos.x, currentMousePos.y - buttonPos.y) <= DELETE_BUTTON_RADIUS) {
-                            newHoverIndex = i;
-                            break;
-                        }
-                        if (pointToLineSegmentDistance(currentMousePos.x, currentMousePos.y, m.startX, m.startY, m.endX, m.endY) < 10) {
-                            newHoverIndex = i;
-                            break;
-                        }
-                    }
-                    if (newHoverIndex !== hoveredMeasurementIndex) {
-                        hoveredMeasurementIndex = newHoverIndex;
-                        updateCursor();
-                    }
-                }
+                // Actualizar canvas para mover el visualizador del pincel
                 redrawCanvas();
             }
         }
@@ -384,7 +346,7 @@
             } else { // brush
                 if (currentPath.length > 1) {
                     brushStrokes.push({ points: currentPath, color: brushColor, size: brushSize });
-                    lastBrushPoint = currentPath[currentPath.length - 1];
+                    lastBrushPoint = currentPath[currentPath.length - 1]; // Guardar último punto para Shift-Click
                 }
                 currentPath = [];
             }
@@ -400,6 +362,19 @@
                 currentPath = [];
             }
             redrawCanvas();
+        }
+
+        function handleClick(e) {
+            if (currentTool === 'measure' && hoveredMeasurementIndex !== -1) {
+                const pos = getMousePos(e);
+                const m = measurements[hoveredMeasurementIndex];
+                const buttonPos = getDeleteButtonPosition(m);
+                if (Math.hypot(pos.x - buttonPos.x, pos.y - buttonPos.y) <= DELETE_BUTTON_RADIUS) {
+                    measurements.splice(hoveredMeasurementIndex, 1);
+                    hoveredMeasurementIndex = -1;
+                    redrawCanvas();
+                }
+            }
         }
 
         function pointToLineSegmentDistance(px, py, x1, y1, x2, y2) {
@@ -447,6 +422,7 @@
 
             measurements.forEach((m, index) => drawMeasurementLine(m, index));
             
+            // *** NUEVO: Dibujar visualizador de pincel ***
             if (currentTool === 'brush' && currentMousePos) {
                 drawBrushVisualizer(currentMousePos);
             }
@@ -465,6 +441,7 @@
             ctx.stroke();
         }
         
+        // *** NUEVO: Función para dibujar el visualizador ***
         function drawBrushVisualizer(pos) {
             ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)';
             ctx.lineWidth = 1;
@@ -549,7 +526,7 @@
 
         function downloadImage() {
             hoveredMeasurementIndex = -1;
-            currentMousePos = null;
+            currentMousePos = null; // Ocultar visualizador antes de descargar
             redrawCanvas();
             const link = document.createElement('a');
             link.download = 'arelyshop-medidas.png';
