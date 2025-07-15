@@ -75,7 +75,7 @@
                     <input type="file" id="image-loader" class="hidden" accept="image/*">
                 </div>
 
-                <!-- Selector de Herramientas -->
+                <!-- *** NUEVO: Selector de Herramientas *** -->
                 <div class="bg-white p-6 rounded-lg shadow-md">
                     <h2 class="text-xl font-bold text-slate-800 mb-4">2. Herramientas</h2>
                     <div class="flex rounded-md shadow-sm">
@@ -96,7 +96,7 @@
                     </div>
                 </div>
 
-                <!-- Controles del Pincel -->
+                <!-- *** NUEVO: Controles del Pincel *** -->
                 <div id="brush-controls" class="bg-white p-6 rounded-lg shadow-md space-y-4 hidden">
                     <div>
                         <h3 class="text-lg font-semibold text-slate-700 mb-2">Color de Pincel</h3>
@@ -159,6 +159,7 @@
         const measurementInput = document.getElementById('measurement-input');
         const submitBtn = document.getElementById('submit-btn');
         const cancelBtn = document.getElementById('cancel-btn');
+        // Nuevos elementos
         const toolMeasureBtn = document.getElementById('tool-measure');
         const toolBrushBtn = document.getElementById('tool-brush');
         const measureControls = document.getElementById('measure-controls');
@@ -176,13 +177,11 @@
         let startX, startY, endX, endY;
         let measureColor = '#000000';
         let hoveredMeasurementIndex = -1;
-        let currentTool = 'measure';
+        // Nuevos estados
+        let currentTool = 'measure'; // 'measure' o 'brush'
         let brushColor = '#FFFFFF';
         let brushSize = 20;
-        // *** NUEVO: Estados para pincel y visualizador ***
-        let lastBrushPoint = null;
-        let currentMousePos = null;
-
+        
         // --- CONSTANTES ---
         const CANVAS_WIDTH = 1000;
         const CANVAS_HEIGHT = 1000;
@@ -212,6 +211,7 @@
             downloadBtn.addEventListener('click', downloadImage);
             resetBtn.addEventListener('click', clearAll);
             
+            // Listeners de controles
             colorPalette.addEventListener('click', selectMeasureColor);
             toolMeasureBtn.addEventListener('click', () => switchTool('measure'));
             toolBrushBtn.addEventListener('click', () => switchTool('brush'));
@@ -219,9 +219,9 @@
             brushSizeSlider.addEventListener('input', (e) => {
                 brushSize = e.target.value;
                 brushSizeValue.textContent = brushSize;
-                redrawCanvas(); // Actualizar visualizador de pincel
             });
 
+            // Listeners del modal
             submitBtn.addEventListener('click', submitMeasurement);
             cancelBtn.addEventListener('click', cancelMeasurement);
             measurementInput.addEventListener('keydown', (e) => {
@@ -232,27 +232,31 @@
         
         function switchTool(tool) {
             currentTool = tool;
-            lastBrushPoint = null; // Reiniciar punto de línea recta al cambiar de herramienta
             if (tool === 'measure') {
                 toolMeasureBtn.classList.add('active');
                 toolBrushBtn.classList.remove('active');
                 measureControls.style.display = 'block';
                 brushControls.style.display = 'none';
+                updateCursor();
             } else { // brush
                 toolBrushBtn.classList.add('active');
                 toolMeasureBtn.classList.remove('active');
                 brushControls.style.display = 'block';
                 measureControls.style.display = 'none';
+                updateCursor();
             }
-            updateCursor();
         }
 
         function updateCursor() {
-            if (!image) { canvas.style.cursor = 'default'; return; }
+            if (!image) {
+                canvas.style.cursor = 'default';
+                return;
+            }
             if (currentTool === 'measure') {
                 canvas.style.cursor = hoveredMeasurementIndex !== -1 ? 'pointer' : 'crosshair';
             } else { // brush
-                canvas.style.cursor = 'none'; // Ocultar cursor para mostrar el visualizador
+                // Podríamos usar un cursor de pincel personalizado, pero por ahora usamos 'crosshair'
+                canvas.style.cursor = 'crosshair';
             }
         }
         
@@ -296,45 +300,49 @@
         function handleMouseDown(e) {
             if (!image) return;
             const pos = getMousePos(e);
-            
+            isDrawing = true;
+
             if (currentTool === 'measure') {
-                if (hoveredMeasurementIndex !== -1) return;
-                isDrawing = true;
+                if (hoveredMeasurementIndex !== -1) { isDrawing = false; return; }
                 startX = pos.x;
                 startY = pos.y;
             } else { // brush
-                // *** Lógica de Shift-Click para líneas rectas ***
-                if (e.shiftKey) {
-                    if (lastBrushPoint) {
-                        brushStrokes.push({ points: [lastBrushPoint, pos], color: brushColor, size: brushSize });
-                        redrawCanvas();
-                    }
-                    lastBrushPoint = pos;
-                } else {
-                    isDrawing = true;
-                    lastBrushPoint = null; // Romper la cadena de líneas rectas
-                    currentPath = [pos];
-                }
+                currentPath = [{ x: pos.x, y: pos.y }];
             }
         }
 
         function handleMouseMove(e) {
-            currentMousePos = getMousePos(e);
+            const pos = getMousePos(e);
             if (isDrawing) {
                 if (currentTool === 'measure') {
-                    let currentX = currentMousePos.x; let currentY = currentMousePos.y;
+                    let currentX = pos.x; let currentY = pos.y;
                     if (e.shiftKey) {
                         const dx = Math.abs(currentX - startX); const dy = Math.abs(currentY - startY);
                         if (dx > dy) currentY = startY; else currentX = startX;
                     }
                     endX = currentX; endY = currentY;
+                    redrawCanvas();
+                    drawMeasurementLine({startX, startY, endX, endY, color: measureColor});
                 } else { // brush
-                    currentPath.push(currentMousePos);
+                    currentPath.push({ x: pos.x, y: pos.y });
+                    redrawCanvas(); // Dibuja el trazo actual en tiempo real
                 }
-                redrawCanvas();
-            } else {
-                // Actualizar canvas para mover el visualizador del pincel
-                redrawCanvas();
+            } else if (currentTool === 'measure') {
+                // Lógica de HOVER para medidas
+                let newHoverIndex = -1;
+                for (let i = measurements.length - 1; i >= 0; i--) {
+                    const m = measurements[i];
+                    const buttonPos = getDeleteButtonPosition(m);
+                    const distToButton = Math.hypot(pos.x - buttonPos.x, pos.y - buttonPos.y);
+                    if (distToButton <= DELETE_BUTTON_RADIUS) { newHoverIndex = i; break; }
+                    const distToLine = pointToLineSegmentDistance(pos.x, pos.y, m.startX, m.startY, m.endX, m.endY);
+                    if (distToLine < 10) { newHoverIndex = i; break; }
+                }
+                if (newHoverIndex !== hoveredMeasurementIndex) {
+                    hoveredMeasurementIndex = newHoverIndex;
+                    updateCursor();
+                    redrawCanvas();
+                }
             }
         }
 
@@ -346,22 +354,25 @@
             } else { // brush
                 if (currentPath.length > 1) {
                     brushStrokes.push({ points: currentPath, color: brushColor, size: brushSize });
-                    lastBrushPoint = currentPath[currentPath.length - 1]; // Guardar último punto para Shift-Click
                 }
                 currentPath = [];
             }
         }
         
         function handleMouseLeave() {
-            currentMousePos = null;
             if (isDrawing) {
                 isDrawing = false;
                 if (currentTool === 'brush' && currentPath.length > 1) {
                     brushStrokes.push({ points: currentPath, color: brushColor, size: brushSize });
                 }
                 currentPath = [];
+                redrawCanvas();
             }
-            redrawCanvas();
+            if(hoveredMeasurementIndex !== -1) {
+                hoveredMeasurementIndex = -1;
+                updateCursor();
+                redrawCanvas();
+            }
         }
 
         function handleClick(e) {
@@ -369,9 +380,11 @@
                 const pos = getMousePos(e);
                 const m = measurements[hoveredMeasurementIndex];
                 const buttonPos = getDeleteButtonPosition(m);
-                if (Math.hypot(pos.x - buttonPos.x, pos.y - buttonPos.y) <= DELETE_BUTTON_RADIUS) {
+                const dist = Math.hypot(pos.x - buttonPos.x, pos.y - buttonPos.y);
+                if (dist <= DELETE_BUTTON_RADIUS) {
                     measurements.splice(hoveredMeasurementIndex, 1);
                     hoveredMeasurementIndex = -1;
+                    updateCursor();
                     redrawCanvas();
                 }
             }
@@ -415,17 +428,14 @@
                 ctx.drawImage(image, 0, 0, image.width, image.height, centerShiftX, centerShiftY, image.width * ratio, image.height * ratio);
             }
             
+            // Dibujar trazos de pincel
             brushStrokes.forEach(drawBrushStroke);
             if (isDrawing && currentTool === 'brush' && currentPath.length > 0) {
                  drawBrushStroke({ points: currentPath, color: brushColor, size: brushSize });
             }
 
+            // Dibujar medidas
             measurements.forEach((m, index) => drawMeasurementLine(m, index));
-            
-            // *** NUEVO: Dibujar visualizador de pincel ***
-            if (currentTool === 'brush' && currentMousePos) {
-                drawBrushVisualizer(currentMousePos);
-            }
         }
         
         function drawBrushStroke(stroke) {
@@ -438,15 +448,6 @@
             for (let i = 1; i < stroke.points.length; i++) {
                 ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
             }
-            ctx.stroke();
-        }
-        
-        // *** NUEVO: Función para dibujar el visualizador ***
-        function drawBrushVisualizer(pos) {
-            ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.arc(pos.x, pos.y, brushSize / 2, 0, Math.PI * 2);
             ctx.stroke();
         }
 
@@ -526,7 +527,6 @@
 
         function downloadImage() {
             hoveredMeasurementIndex = -1;
-            currentMousePos = null; // Ocultar visualizador antes de descargar
             redrawCanvas();
             const link = document.createElement('a');
             link.download = 'arelyshop-medidas.png';
@@ -538,7 +538,6 @@
             measurements = [];
             brushStrokes = [];
             hoveredMeasurementIndex = -1;
-            lastBrushPoint = null;
             redrawCanvas();
         }
 
