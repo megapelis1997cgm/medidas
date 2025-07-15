@@ -8,6 +8,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome para íconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -21,7 +23,7 @@
             border: 3px dashed #cbd5e1; /* slate-300 */
             transition: border-color 0.3s, background-color 0.3s;
         }
-        #canvas-container.drag-over {
+        #canvas-container.drag-over, #precios-canvas-container.drag-over {
             border-color: #3b82f6; /* blue-500 */
             background-color: #eff6ff; /* blue-50 */
         }
@@ -57,7 +59,8 @@
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            background-size: cover;
+            background-size: contain;
+            background-repeat: no-repeat;
             background-position: center;
             position: relative;
             transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
@@ -65,7 +68,7 @@
         .collage-cell .placeholder {
             color: #64748b; /* slate-500 */
             text-align: center;
-            pointer-events: none; /* Para que no interfiera con el drop */
+            pointer-events: none;
         }
         .collage-cell.has-image .placeholder { display: none; }
         .collage-cell.dragging {
@@ -75,32 +78,54 @@
         }
         .collage-cell.drag-over-target {
             border-style: solid;
-            border-color: #3b82f6; /* blue-500 */
+            border-color: #3b82f6;
             transform: scale(1.02);
         }
         .delete-cell-btn {
             position: absolute;
-            top: 0.5rem;
+            top: 0.5rem; right: 0.5rem; width: 2rem; height: 2rem;
+            background-color: rgba(239, 68, 68, 0.8);
+            color: white; border: none; border-radius: 50%;
+            font-size: 1.5rem; line-height: 2rem; text-align: center;
+            cursor: pointer; transition: background-color 0.2s, transform 0.2s;
+            z-index: 10; display: none;
+        }
+        .collage-cell.has-image .delete-cell-btn { display: block; }
+        .delete-cell-btn:hover { background-color: #dc2626; transform: scale(1.1); }
+
+        /* Estilos Precios */
+         #precios-previews-container {
+            width: 100%;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 1rem;
+        }
+        .price-preview-wrapper {
+            aspect-ratio: 1 / 1;
+            border: 2px solid #e2e8f0;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            position: relative; /* Para posicionar el botón de descarga */
+        }
+        .download-single-price-btn {
+            position: absolute;
+            bottom: 0.5rem;
             right: 0.5rem;
-            width: 2rem;
-            height: 2rem;
-            background-color: rgba(239, 68, 68, 0.8); /* red-500 con opacidad */
+            width: 2.5rem;
+            height: 2.5rem;
+            background-color: rgba(16, 185, 129, 0.8); /* emerald-500 con opacidad */
             color: white;
             border: none;
             border-radius: 50%;
-            font-size: 1.5rem;
-            line-height: 2rem;
-            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             cursor: pointer;
             transition: background-color 0.2s, transform 0.2s;
             z-index: 10;
-            display: none; /* Oculto por defecto */
         }
-        .collage-cell.has-image .delete-cell-btn {
-            display: block; /* Visible cuando hay imagen */
-        }
-        .delete-cell-btn:hover {
-            background-color: #dc2626; /* red-600 */
+        .download-single-price-btn:hover {
+            background-color: #059669; /* emerald-600 */
             transform: scale(1.1);
         }
     </style>
@@ -122,13 +147,13 @@
             <div class="flex border-b border-slate-300">
                 <button id="tab-medidas" class="tool-tab active -mb-px py-2 px-4 font-semibold text-slate-600 border-b-2 border-transparent rounded-t-lg">Medidas</button>
                 <button id="tab-collage" class="tool-tab py-2 px-4 font-semibold text-slate-600 border-b-2 border-transparent rounded-t-lg">Collage</button>
+                <button id="tab-precios" class="tool-tab py-2 px-4 font-semibold text-slate-600 border-b-2 border-transparent rounded-t-lg">Precios</button>
             </div>
         </div>
 
         <!-- Contenedor Herramienta de Medidas -->
         <div id="medidas-tool" class="w-full">
             <div class="w-full max-w-5xl flex flex-col lg:flex-row gap-8 mx-auto">
-                <!-- Columna de Controles (Medidas) -->
                 <div class="w-full lg:w-1/3 space-y-6">
                     <div class="bg-white p-6 rounded-lg shadow-md">
                         <h2 class="text-xl font-bold text-slate-800 mb-4">1. Cargar Imagen</h2>
@@ -170,17 +195,13 @@
                         </div>
                     </div>
                 </div>
-                <!-- Columna del Canvas (Medidas) -->
                 <div class="w-full lg:w-2/3 flex flex-col items-center">
                     <div id="canvas-container" class="bg-white rounded-lg shadow-md flex items-center justify-center relative">
                         <canvas id="canvas" width="1000" height="1000"></canvas>
-                        <!-- *** MODIFICADO: Placeholder con botón de carga *** -->
                         <div id="placeholder-text" class="absolute text-center text-slate-400 p-4 flex flex-col items-center gap-2">
                             <p class="text-lg font-semibold pointer-events-none">Arrastra y suelta una imagen aquí</p>
                             <span class="text-sm pointer-events-none">o</span>
-                            <label for="image-loader" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition cursor-pointer">
-                                Cargar Foto
-                            </label>
+                            <label for="image-loader" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition cursor-pointer">Cargar Foto</label>
                         </div>
                     </div>
                 </div>
@@ -190,14 +211,11 @@
         <!-- Contenedor Herramienta de Collage -->
         <div id="collage-tool" class="w-full hidden">
              <div class="w-full max-w-5xl flex flex-col lg:flex-row gap-8 mx-auto">
-                <!-- Columna de Controles (Collage) -->
                 <div class="w-full lg:w-1/3 space-y-6">
                      <div class="bg-white p-6 rounded-lg shadow-md">
                         <h2 class="text-xl font-bold text-slate-800 mb-4">1. Cargar Imágenes</h2>
                         <p class="text-slate-600 mb-4">Haz clic en un cuadro o arrastra una imagen. Para cargar varias, usa el botón.</p>
-                        <button id="load-multiple-collage-btn" class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition">
-                            Cargar Varias Fotos
-                        </button>
+                        <button id="load-multiple-collage-btn" class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition">Cargar Varias Fotos</button>
                         <input type="file" id="collage-image-loader" class="hidden" accept="image/*">
                         <input type="file" id="collage-multiple-loader" class="hidden" accept="image/*" multiple>
                     </div>
@@ -209,7 +227,6 @@
                         </div>
                     </div>
                 </div>
-                <!-- Columna del Grid (Collage) -->
                 <div class="w-full lg:w-2/3 flex flex-col items-center">
                     <div class="collage-grid">
                         <div id="cell-0" class="collage-cell" draggable="true"><div class="placeholder"><span>+</span><p>Imagen 1</p></div><button class="delete-cell-btn">&times;</button></div>
@@ -221,6 +238,50 @@
             </div>
         </div>
 
+        <!-- Contenedor Herramienta de Precios -->
+        <div id="precios-tool" class="w-full hidden">
+             <div class="w-full max-w-5xl flex flex-col lg:flex-row gap-8 mx-auto">
+                <!-- Columna de Controles (Precios) -->
+                <div class="w-full lg:w-1/3 space-y-6">
+                     <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h2 class="text-xl font-bold text-slate-800 mb-4">1. Cargar Imagen(es)</h2>
+                        <label for="precios-image-loader" class="w-full inline-block text-center bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition cursor-pointer">Seleccionar Foto(s)</label>
+                        <input type="file" id="precios-image-loader" class="hidden" accept="image/*" multiple>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-md space-y-4">
+                        <h2 class="text-xl font-bold text-slate-800 mb-4">2. Información (para todas las fotos)</h2>
+                        <div>
+                            <label for="price-input" class="flex items-center text-sm font-medium text-slate-700 mb-1">
+                                <i class="fa-solid fa-tag mr-2"></i>Precio
+                            </label>
+                            <div class="relative">
+                                <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">Bs.</span>
+                                <input type="text" id="price-input" class="w-full border border-slate-300 rounded-md p-2 pl-10" placeholder="150">
+                            </div>
+                        </div>
+                        <div>
+                            <label for="watermark-input" class="block text-sm font-medium text-slate-700 mb-1">Marca de Agua (Tienda)</label>
+                            <input type="text" id="watermark-input" class="w-full border border-slate-300 rounded-md p-2" value="ArelyShop">
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h2 class="text-xl font-bold text-slate-800 mb-4">3. Acciones</h2>
+                        <div class="space-y-4">
+                            <button id="download-price-btn" class="w-full bg-emerald-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-emerald-700 transition disabled:bg-slate-400 disabled:cursor-not-allowed" disabled>Descargar Todo</button>
+                            <button id="clear-price-btn" class="w-full bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition disabled:bg-slate-400 disabled:cursor-not-allowed" disabled>Limpiar Todo</button>
+                        </div>
+                    </div>
+                </div>
+                <!-- Columna del Canvas (Precios) -->
+                <div class="w-full lg:w-2/3 flex flex-col items-center">
+                    <div id="precios-previews-container" class="bg-white rounded-lg shadow-md p-4">
+                        <div id="precios-placeholder-text" class="w-full text-center text-slate-400 p-4">
+                            <p class="text-lg font-semibold">Sube una o más imágenes para empezar</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </main>
 
     <!-- Modal para medida -->
@@ -240,575 +301,757 @@
         // --- PESTAÑAS ---
         const tabMedidas = document.getElementById('tab-medidas');
         const tabCollage = document.getElementById('tab-collage');
+        const tabPrecios = document.getElementById('tab-precios');
         const medidasTool = document.getElementById('medidas-tool');
         const collageTool = document.getElementById('collage-tool');
+        const preciosTool = document.getElementById('precios-tool');
 
         tabMedidas.addEventListener('click', () => {
             medidasTool.classList.remove('hidden');
             collageTool.classList.add('hidden');
+            preciosTool.classList.add('hidden');
             tabMedidas.classList.add('active');
             tabCollage.classList.remove('active');
+            tabPrecios.classList.remove('active');
         });
 
         tabCollage.addEventListener('click', () => {
             medidasTool.classList.add('hidden');
             collageTool.classList.remove('hidden');
-            tabCollage.classList.add('active');
+            preciosTool.classList.add('hidden');
             tabMedidas.classList.remove('active');
+            tabCollage.classList.add('active');
+            tabPrecios.classList.remove('active');
         });
 
-        // --- LÓGICA DE MEDIDAS (EXISTENTE) ---
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-        const imageLoader = document.getElementById('image-loader');
-        const downloadBtn = document.getElementById('download-btn');
-        const resetBtn = document.getElementById('reset-btn');
-        const canvasContainer = document.getElementById('canvas-container');
-        const placeholderText = document.getElementById('placeholder-text');
-        const colorPalette = document.getElementById('color-palette');
-        const modal = document.getElementById('modal');
-        const measurementInput = document.getElementById('measurement-input');
-        const submitBtn = document.getElementById('submit-btn');
-        const cancelBtn = document.getElementById('cancel-btn');
-        const toolMeasureBtn = document.getElementById('tool-measure');
-        const toolBrushBtn = document.getElementById('tool-brush');
-        const measureControls = document.getElementById('measure-controls');
-        const brushControls = document.getElementById('brush-controls');
-        const brushColorPicker = document.getElementById('brush-color-picker');
-        const brushSizeSlider = document.getElementById('brush-size-slider');
-        const brushSizeValue = document.getElementById('brush-size-value');
+        tabPrecios.addEventListener('click', () => {
+            medidasTool.classList.add('hidden');
+            collageTool.classList.add('hidden');
+            preciosTool.classList.remove('hidden');
+            tabMedidas.classList.remove('active');
+            tabCollage.classList.remove('active');
+            tabPrecios.classList.add('active');
+        });
 
-        let image = null;
-        let measurements = [];
-        let brushStrokes = [];
-        let currentPath = [];
-        let isDrawing = false;
-        let startX, startY, endX, endY;
-        let measureColor = '#000000';
-        let hoveredMeasurementIndex = -1;
-        let currentTool = 'measure';
-        let brushColor = '#FFFFFF';
-        let brushSize = 20;
-        
-        const CANVAS_WIDTH = 1000;
-        const CANVAS_HEIGHT = 1000;
-        const TEXT_SIZE = 30;
-        const LINE_WIDTH = 3;
-        const CAP_LENGTH = 15;
-        const DELETE_BUTTON_RADIUS = 15;
+        // --- LÓGICA DE MEDIDAS ---
+        (() => {
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            const imageLoader = document.getElementById('image-loader');
+            const downloadBtn = document.getElementById('download-btn');
+            const resetBtn = document.getElementById('reset-btn');
+            const canvasContainer = document.getElementById('canvas-container');
+            const placeholderText = document.getElementById('placeholder-text');
+            const colorPalette = document.getElementById('color-palette');
+            const modal = document.getElementById('modal');
+            const measurementInput = document.getElementById('measurement-input');
+            const submitBtn = document.getElementById('submit-btn');
+            const cancelBtn = document.getElementById('cancel-btn');
+            const toolMeasureBtn = document.getElementById('tool-measure');
+            const toolBrushBtn = document.getElementById('tool-brush');
+            const measureControls = document.getElementById('measure-controls');
+            const brushControls = document.getElementById('brush-controls');
+            const brushColorPicker = document.getElementById('brush-color-picker');
+            const brushSizeSlider = document.getElementById('brush-size-slider');
+            const brushSizeValue = document.getElementById('brush-size-value');
 
-        function initMedidas() {
-            setupMedidasEventListeners();
-            clearCanvas();
-        }
+            let image = null;
+            let measurements = [];
+            let brushStrokes = [];
+            let currentPath = [];
+            let isDrawing = false;
+            let startX, startY, endX, endY;
+            let measureColor = '#000000';
+            let hoveredMeasurementIndex = -1;
+            let currentTool = 'measure';
+            let brushColor = '#FFFFFF';
+            let brushSize = 20;
+            
+            const CANVAS_WIDTH = 1000;
+            const CANVAS_HEIGHT = 1000;
+            const TEXT_SIZE = 30;
+            const LINE_WIDTH = 3;
+            const CAP_LENGTH = 15;
+            const DELETE_BUTTON_RADIUS = 15;
 
-        function setupMedidasEventListeners() {
-            imageLoader.addEventListener('change', handleImageUpload);
-            canvasContainer.addEventListener('dragover', handleDragOver);
-            canvasContainer.addEventListener('dragleave', handleDragLeave);
-            canvasContainer.addEventListener('drop', handleDrop);
-            canvas.addEventListener('mousedown', handleMouseDown);
-            canvas.addEventListener('mousemove', handleMouseMove);
-            canvas.addEventListener('mouseup', handleMouseUp);
-            canvas.addEventListener('mouseleave', handleMouseLeave);
-            canvas.addEventListener('click', handleClick);
-            downloadBtn.addEventListener('click', downloadImage);
-            resetBtn.addEventListener('click', clearAll);
-            colorPalette.addEventListener('click', selectMeasureColor);
-            toolMeasureBtn.addEventListener('click', () => switchTool('measure'));
-            toolBrushBtn.addEventListener('click', () => switchTool('brush'));
-            brushColorPicker.addEventListener('input', (e) => { brushColor = e.target.value; updateCursor(); });
-            brushSizeSlider.addEventListener('input', (e) => { brushSize = e.target.value; brushSizeValue.textContent = brushSize; updateCursor(); });
-            submitBtn.addEventListener('click', submitMeasurement);
-            cancelBtn.addEventListener('click', cancelMeasurement);
-            measurementInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitMeasurement(); if (e.key === 'Escape') cancelMeasurement(); });
-            window.addEventListener('resize', updateCursor);
-        }
-        
-        function updateBrushCursor() {
-            const rect = canvas.getBoundingClientRect();
-            if (rect.width === 0) return;
-            const scale = rect.width / CANVAS_WIDTH;
-            const scaledSize = Math.max(parseInt(brushSize) * scale, 1);
-            const cursorCanvas = document.createElement('canvas');
-            const cursorCtx = cursorCanvas.getContext('2d');
-            const canvasSize = scaledSize + 4;
-            cursorCanvas.width = canvasSize;
-            cursorCanvas.height = canvasSize;
-            const center = canvasSize / 2;
-            cursorCtx.beginPath();
-            cursorCtx.arc(center, center, scaledSize / 2, 0, 2 * Math.PI);
-            cursorCtx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-            cursorCtx.lineWidth = 2.5;
-            cursorCtx.stroke();
-            cursorCtx.beginPath();
-            cursorCtx.arc(center, center, scaledSize / 2, 0, 2 * Math.PI);
-            cursorCtx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
-            cursorCtx.lineWidth = 1;
-            cursorCtx.stroke();
-            cursorCtx.beginPath();
-            cursorCtx.arc(center, center, scaledSize / 2, 0, 2 * Math.PI);
-            cursorCtx.fillStyle = brushColor;
-            cursorCtx.fill();
-            const dataURL = cursorCanvas.toDataURL();
-            canvas.style.cursor = `url(${dataURL}) ${center} ${center}, crosshair`;
-        }
+            function initMedidas() {
+                setupMedidasEventListeners();
+                clearCanvas();
+            }
 
-        function switchTool(tool) {
-            currentTool = tool;
-            toolMeasureBtn.classList.toggle('active', tool === 'measure');
-            toolBrushBtn.classList.toggle('active', tool !== 'measure');
-            measureControls.style.display = tool === 'measure' ? 'block' : 'none';
-            brushControls.style.display = tool !== 'measure' ? 'block' : 'none';
-            updateCursor();
-        }
+            function setupMedidasEventListeners() {
+                imageLoader.addEventListener('change', handleImageUpload);
+                canvasContainer.addEventListener('dragover', handleDragOver);
+                canvasContainer.addEventListener('dragleave', handleDragLeave);
+                canvasContainer.addEventListener('drop', handleDrop);
+                canvas.addEventListener('mousedown', handleMouseDown);
+                canvas.addEventListener('mousemove', handleMouseMove);
+                canvas.addEventListener('mouseup', handleMouseUp);
+                canvas.addEventListener('mouseleave', handleMouseLeave);
+                canvas.addEventListener('click', handleClick);
+                downloadBtn.addEventListener('click', downloadImage);
+                resetBtn.addEventListener('click', clearAll);
+                colorPalette.addEventListener('click', selectMeasureColor);
+                toolMeasureBtn.addEventListener('click', () => switchTool('measure'));
+                toolBrushBtn.addEventListener('click', () => switchTool('brush'));
+                brushColorPicker.addEventListener('input', (e) => { brushColor = e.target.value; updateCursor(); });
+                brushSizeSlider.addEventListener('input', (e) => { brushSize = e.target.value; brushSizeValue.textContent = brushSize; updateCursor(); });
+                submitBtn.addEventListener('click', submitMeasurement);
+                cancelBtn.addEventListener('click', cancelMeasurement);
+                measurementInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitMeasurement(); if (e.key === 'Escape') cancelMeasurement(); });
+                window.addEventListener('resize', updateCursor);
+            }
+            
+            function updateBrushCursor() {
+                const rect = canvas.getBoundingClientRect();
+                if (rect.width === 0) return;
+                const scale = rect.width / CANVAS_WIDTH;
+                const scaledSize = Math.max(parseInt(brushSize) * scale, 1);
+                const cursorCanvas = document.createElement('canvas');
+                const cursorCtx = cursorCanvas.getContext('2d');
+                const canvasSize = scaledSize + 4;
+                cursorCanvas.width = canvasSize;
+                cursorCanvas.height = canvasSize;
+                const center = canvasSize / 2;
+                cursorCtx.beginPath();
+                cursorCtx.arc(center, center, scaledSize / 2, 0, 2 * Math.PI);
+                cursorCtx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+                cursorCtx.lineWidth = 2.5;
+                cursorCtx.stroke();
+                cursorCtx.beginPath();
+                cursorCtx.arc(center, center, scaledSize / 2, 0, 2 * Math.PI);
+                cursorCtx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+                cursorCtx.lineWidth = 1;
+                cursorCtx.stroke();
+                cursorCtx.beginPath();
+                cursorCtx.arc(center, center, scaledSize / 2, 0, 2 * Math.PI);
+                cursorCtx.fillStyle = brushColor;
+                cursorCtx.fill();
+                const dataURL = cursorCanvas.toDataURL();
+                canvas.style.cursor = `url(${dataURL}) ${center} ${center}, crosshair`;
+            }
 
-        function updateCursor() {
-            if (!image) { canvas.style.cursor = 'default'; return; }
-            if (currentTool === 'measure') { canvas.style.cursor = hoveredMeasurementIndex !== -1 ? 'pointer' : 'crosshair'; } 
-            else { updateBrushCursor(); }
-        }
-        
-        function handleImageUpload(e) { const file = e.target.files[0]; if (file) loadImage(file); }
-        function handleDragOver(e) { e.preventDefault(); e.stopPropagation(); canvasContainer.classList.add('drag-over'); }
-        function handleDragLeave(e) { e.preventDefault(); e.stopPropagation(); canvasContainer.classList.remove('drag-over'); }
-        function handleDrop(e) {
-            e.preventDefault(); e.stopPropagation(); canvasContainer.classList.remove('drag-over');
-            const file = e.dataTransfer.files[0];
-            if (file && file.type.startsWith('image/')) loadImage(file);
-        }
+            function switchTool(tool) {
+                currentTool = tool;
+                toolMeasureBtn.classList.toggle('active', tool === 'measure');
+                toolBrushBtn.classList.toggle('active', tool !== 'measure');
+                measureControls.style.display = tool === 'measure' ? 'block' : 'none';
+                brushControls.style.display = tool !== 'measure' ? 'block' : 'none';
+                updateCursor();
+            }
 
-        function loadImage(file) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                image = new Image();
-                image.onload = () => { clearAll(); enableButtons(); redrawCanvas(); };
-                image.src = e.target.result;
-            };
-            reader.readAsDataURL(file);
-        }
-        
-        function enableButtons() {
-            downloadBtn.disabled = false;
-            resetBtn.disabled = false;
-            placeholderText.style.display = 'none';
-            updateCursor();
-        }
+            function updateCursor() {
+                if (!image) { canvas.style.cursor = 'default'; return; }
+                if (currentTool === 'measure') { canvas.style.cursor = hoveredMeasurementIndex !== -1 ? 'pointer' : 'crosshair'; } 
+                else { updateBrushCursor(); }
+            }
+            
+            function handleImageUpload(e) { const file = e.target.files[0]; if (file) loadImage(file); }
+            function handleDragOver(e) { e.preventDefault(); e.stopPropagation(); canvasContainer.classList.add('drag-over'); }
+            function handleDragLeave(e) { e.preventDefault(); e.stopPropagation(); canvasContainer.classList.remove('drag-over'); }
+            function handleDrop(e) {
+                e.preventDefault(); e.stopPropagation(); canvasContainer.classList.remove('drag-over');
+                const file = e.dataTransfer.files[0];
+                if (file && file.type.startsWith('image/')) loadImage(file);
+            }
 
-        function getMousePos(e) {
-            const rect = canvas.getBoundingClientRect();
-            return { x: (e.clientX - rect.left) * (CANVAS_WIDTH / rect.width), y: (e.clientY - rect.top) * (CANVAS_HEIGHT / rect.height) };
-        }
+            function loadImage(file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    image = new Image();
+                    image.onload = () => { clearAll(); enableButtons(); redrawCanvas(); };
+                    image.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+            
+            function enableButtons() {
+                downloadBtn.disabled = false;
+                resetBtn.disabled = false;
+                placeholderText.style.display = 'none';
+                updateCursor();
+            }
 
-        function handleMouseDown(e) {
-            if (!image) return;
-            const pos = getMousePos(e);
-            isDrawing = true;
-            if (currentTool === 'measure') {
-                if (hoveredMeasurementIndex !== -1) { isDrawing = false; return; }
-                startX = pos.x;
-                startY = pos.y;
-            } else { currentPath = [{ x: pos.x, y: pos.y }]; }
-        }
+            function getMousePos(e) {
+                const rect = canvas.getBoundingClientRect();
+                return { x: (e.clientX - rect.left) * (CANVAS_WIDTH / rect.width), y: (e.clientY - rect.top) * (CANVAS_HEIGHT / rect.height) };
+            }
 
-        function handleMouseMove(e) {
-            const pos = getMousePos(e);
-            if (isDrawing) {
+            function handleMouseDown(e) {
+                if (!image) return;
+                const pos = getMousePos(e);
+                isDrawing = true;
                 if (currentTool === 'measure') {
-                    let currentX = pos.x; let currentY = pos.y;
-                    if (e.shiftKey) {
-                        const dx = Math.abs(currentX - startX); const dy = Math.abs(currentY - startY);
-                        if (dx > dy) currentY = startY; else currentX = startX;
+                    if (hoveredMeasurementIndex !== -1) { isDrawing = false; return; }
+                    startX = pos.x;
+                    startY = pos.y;
+                } else { currentPath = [{ x: pos.x, y: pos.y }]; }
+            }
+
+            function handleMouseMove(e) {
+                const pos = getMousePos(e);
+                if (isDrawing) {
+                    if (currentTool === 'measure') {
+                        let currentX = pos.x; let currentY = pos.y;
+                        if (e.shiftKey) {
+                            const dx = Math.abs(currentX - startX); const dy = Math.abs(currentY - startY);
+                            if (dx > dy) currentY = startY; else currentX = startX;
+                        }
+                        endX = currentX; endY = currentY;
+                        redrawCanvas();
+                        drawMeasurementLine({startX, startY, endX, endY, color: measureColor});
+                    } else {
+                        if (e.shiftKey && currentPath.length > 0) { currentPath = [currentPath[0], { x: pos.x, y: pos.y }]; } 
+                        else { currentPath.push({ x: pos.x, y: pos.y }); }
+                        redrawCanvas();
                     }
-                    endX = currentX; endY = currentY;
-                    redrawCanvas();
-                    drawMeasurementLine({startX, startY, endX, endY, color: measureColor});
-                } else {
-                    if (e.shiftKey && currentPath.length > 0) { currentPath = [currentPath[0], { x: pos.x, y: pos.y }]; } 
-                    else { currentPath.push({ x: pos.x, y: pos.y }); }
-                    redrawCanvas();
-                }
-            } else if (currentTool === 'measure') {
-                let newHoverIndex = -1;
-                for (let i = measurements.length - 1; i >= 0; i--) {
-                    const m = measurements[i];
-                    const buttonPos = getDeleteButtonPosition(m);
-                    if (Math.hypot(pos.x - buttonPos.x, pos.y - buttonPos.y) <= DELETE_BUTTON_RADIUS) { newHoverIndex = i; break; }
-                    if (pointToLineSegmentDistance(pos.x, pos.y, m.startX, m.startY, m.endX, m.endY) < 10) { newHoverIndex = i; break; }
-                }
-                if (newHoverIndex !== hoveredMeasurementIndex) {
-                    hoveredMeasurementIndex = newHoverIndex;
-                    updateCursor();
-                    redrawCanvas();
+                } else if (currentTool === 'measure') {
+                    let newHoverIndex = -1;
+                    for (let i = measurements.length - 1; i >= 0; i--) {
+                        const m = measurements[i];
+                        const buttonPos = getDeleteButtonPosition(m);
+                        if (Math.hypot(pos.x - buttonPos.x, pos.y - buttonPos.y) <= DELETE_BUTTON_RADIUS) { newHoverIndex = i; break; }
+                        if (pointToLineSegmentDistance(pos.x, pos.y, m.startX, m.startY, m.endX, m.endY) < 10) { newHoverIndex = i; break; }
+                    }
+                    if (newHoverIndex !== hoveredMeasurementIndex) {
+                        hoveredMeasurementIndex = newHoverIndex;
+                        updateCursor();
+                        redrawCanvas();
+                    }
                 }
             }
-        }
 
-        function handleMouseUp() {
-            if (!isDrawing) return;
-            isDrawing = false;
-            if (currentTool === 'measure') { if (startX !== endX || startY !== endY) showModal(); } 
-            else { if (currentPath.length > 1) { brushStrokes.push({ points: currentPath, color: brushColor, size: brushSize }); } currentPath = []; }
-        }
-        
-        function handleMouseLeave() {
-            if (isDrawing) {
+            function handleMouseUp() {
+                if (!isDrawing) return;
                 isDrawing = false;
-                if (currentTool === 'brush' && currentPath.length > 1) { brushStrokes.push({ points: currentPath, color: brushColor, size: brushSize }); }
-                currentPath = [];
+                if (currentTool === 'measure') { if (startX !== endX || startY !== endY) showModal(); } 
+                else { if (currentPath.length > 1) { brushStrokes.push({ points: currentPath, color: brushColor, size: brushSize }); } currentPath = []; }
+            }
+            
+            function handleMouseLeave() {
+                if (isDrawing) {
+                    isDrawing = false;
+                    if (currentTool === 'brush' && currentPath.length > 1) { brushStrokes.push({ points: currentPath, color: brushColor, size: brushSize }); }
+                    currentPath = [];
+                    redrawCanvas();
+                }
+                if(hoveredMeasurementIndex !== -1) { hoveredMeasurementIndex = -1; updateCursor(); redrawCanvas(); }
+            }
+
+            function handleClick(e) {
+                if (currentTool === 'measure' && hoveredMeasurementIndex !== -1) {
+                    const pos = getMousePos(e);
+                    const m = measurements[hoveredMeasurementIndex];
+                    const buttonPos = getDeleteButtonPosition(m);
+                    if (Math.hypot(pos.x - buttonPos.x, pos.y - buttonPos.y) <= DELETE_BUTTON_RADIUS) {
+                        measurements.splice(hoveredMeasurementIndex, 1);
+                        hoveredMeasurementIndex = -1;
+                        updateCursor();
+                        redrawCanvas();
+                    }
+                }
+            }
+
+            function pointToLineSegmentDistance(px, py, x1, y1, x2, y2) {
+                const l2 = (x2 - x1) ** 2 + (y2 - y1) ** 2;
+                if (l2 === 0) return Math.hypot(px - x1, py - y1);
+                let t = ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / l2;
+                t = Math.max(0, Math.min(1, t));
+                const closestX = x1 + t * (x2 - x1); const closestY = y1 + t * (y2 - y1);
+                return Math.hypot(px - closestX, py - closestY);
+            }
+
+            function showModal() { modal.style.display = 'flex'; measurementInput.value = ''; measurementInput.focus(); }
+            function hideModal() { modal.style.display = 'none'; }
+            function submitMeasurement() {
+                const text = measurementInput.value.trim();
+                if (text) measurements.push({ startX, startY, endX, endY, color: measureColor, text });
+                hideModal();
                 redrawCanvas();
             }
-            if(hoveredMeasurementIndex !== -1) { hoveredMeasurementIndex = -1; updateCursor(); redrawCanvas(); }
-        }
+            function cancelMeasurement() { hideModal(); redrawCanvas(); }
 
-        function handleClick(e) {
-            if (currentTool === 'measure' && hoveredMeasurementIndex !== -1) {
-                const pos = getMousePos(e);
-                const m = measurements[hoveredMeasurementIndex];
-                const buttonPos = getDeleteButtonPosition(m);
-                if (Math.hypot(pos.x - buttonPos.x, pos.y - buttonPos.y) <= DELETE_BUTTON_RADIUS) {
-                    measurements.splice(hoveredMeasurementIndex, 1);
-                    hoveredMeasurementIndex = -1;
-                    updateCursor();
-                    redrawCanvas();
+            function clearCanvas() {
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                if (!image) placeholderText.style.display = 'flex';
+                updateCursor();
+            }
+            
+            function redrawCanvas() {
+                clearCanvas();
+                if (image) {
+                    const hRatio = CANVAS_WIDTH / image.width; const vRatio = CANVAS_HEIGHT / image.height;
+                    const ratio = Math.min(hRatio, vRatio);
+                    const centerShiftX = (CANVAS_WIDTH - image.width * ratio) / 2;
+                    const centerShiftY = (CANVAS_HEIGHT - image.height * ratio) / 2;
+                    ctx.drawImage(image, 0, 0, image.width, image.height, centerShiftX, centerShiftY, image.width * ratio, image.height * ratio);
                 }
+                brushStrokes.forEach(drawBrushStroke);
+                if (isDrawing && currentTool === 'brush' && currentPath.length > 0) { drawBrushStroke({ points: currentPath, color: brushColor, size: brushSize }); }
+                measurements.forEach((m, index) => drawMeasurementLine(m, index));
             }
-        }
-
-        function pointToLineSegmentDistance(px, py, x1, y1, x2, y2) {
-            const l2 = (x2 - x1) ** 2 + (y2 - y1) ** 2;
-            if (l2 === 0) return Math.hypot(px - x1, py - y1);
-            let t = ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / l2;
-            t = Math.max(0, Math.min(1, t));
-            const closestX = x1 + t * (x2 - x1); const closestY = y1 + t * (y2 - y1);
-            return Math.hypot(px - closestX, py - closestY);
-        }
-
-        function showModal() { modal.style.display = 'flex'; measurementInput.value = ''; measurementInput.focus(); }
-        function hideModal() { modal.style.display = 'none'; }
-        function submitMeasurement() {
-            const text = measurementInput.value.trim();
-            if (text) measurements.push({ startX, startY, endX, endY, color: measureColor, text });
-            hideModal();
-            redrawCanvas();
-        }
-        function cancelMeasurement() { hideModal(); redrawCanvas(); }
-
-        function clearCanvas() {
-            ctx.fillStyle = '#FFFFFF';
-            ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-            if (!image) placeholderText.style.display = 'flex';
-            updateCursor();
-        }
-        
-        function redrawCanvas() {
-            clearCanvas();
-            if (image) {
-                const hRatio = CANVAS_WIDTH / image.width; const vRatio = CANVAS_HEIGHT / image.height;
-                const ratio = Math.min(hRatio, vRatio);
-                const centerShiftX = (CANVAS_WIDTH - image.width * ratio) / 2;
-                const centerShiftY = (CANVAS_HEIGHT - image.height * ratio) / 2;
-                ctx.drawImage(image, 0, 0, image.width, image.height, centerShiftX, centerShiftY, image.width * ratio, image.height * ratio);
-            }
-            brushStrokes.forEach(drawBrushStroke);
-            if (isDrawing && currentTool === 'brush' && currentPath.length > 0) { drawBrushStroke({ points: currentPath, color: brushColor, size: brushSize }); }
-            measurements.forEach((m, index) => drawMeasurementLine(m, index));
-        }
-        
-        function drawBrushStroke(stroke) {
-            ctx.strokeStyle = stroke.color;
-            ctx.lineWidth = stroke.size;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            ctx.beginPath();
-            ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
-            for (let i = 1; i < stroke.points.length; i++) { ctx.lineTo(stroke.points[i].x, stroke.points[i].y); }
-            ctx.stroke();
-        }
-
-        function getDeleteButtonPosition(m) {
-             const angle = Math.atan2(m.endY - m.startY, m.endX - m.startX);
-             const perpAngle = angle + Math.PI / 2;
-             return { x: m.endX + (CAP_LENGTH + 5) * Math.cos(perpAngle), y: m.endY + (CAP_LENGTH + 5) * Math.sin(perpAngle) };
-        }
-
-        function drawMeasurementLine(m, index) {
-            const { startX, startY, endX, endY, color, text = '' } = m;
-            ctx.strokeStyle = color;
-            ctx.fillStyle = color;
-            ctx.lineWidth = (index === hoveredMeasurementIndex && currentTool === 'measure') ? LINE_WIDTH + 2 : LINE_WIDTH;
-            ctx.font = `bold ${TEXT_SIZE}px Inter`;
-            const angle = Math.atan2(endY - startY, endX - startX);
-            const perpAngle = angle + Math.PI / 2;
-            const cap1_x1 = startX + CAP_LENGTH * Math.cos(perpAngle); const cap1_y1 = startY + CAP_LENGTH * Math.sin(perpAngle);
-            const cap1_x2 = startX - CAP_LENGTH * Math.cos(perpAngle); const cap1_y2 = startY - CAP_LENGTH * Math.sin(perpAngle);
-            const cap2_x1 = endX + CAP_LENGTH * Math.cos(perpAngle); const cap2_y1 = endY + CAP_LENGTH * Math.sin(perpAngle);
-            const cap2_x2 = endX - CAP_LENGTH * Math.cos(perpAngle); const cap2_y2 = endY - CAP_LENGTH * Math.sin(perpAngle);
-            ctx.beginPath();
-            if (text) {
-                const textMetrics = ctx.measureText(text);
-                const textWidth = textMetrics.width + 10;
-                const lineLength = Math.hypot(endX - startX, endY - startY);
-                const segmentLength = (lineLength - textWidth) / 2;
-                if (segmentLength > 0) {
-                    const gapStartX = startX + segmentLength * Math.cos(angle); const gapStartY = startY + segmentLength * Math.sin(angle);
-                    const gapEndX = endX - segmentLength * Math.cos(angle); const gapEndY = endY - segmentLength * Math.sin(angle);
-                    ctx.moveTo(startX, startY); ctx.lineTo(gapStartX, gapStartY);
-                    ctx.moveTo(gapEndX, gapEndY); ctx.lineTo(endX, endY);
-                }
-            } else { ctx.moveTo(startX, startY); ctx.lineTo(endX, endY); }
-            ctx.moveTo(cap1_x1, cap1_y1); ctx.lineTo(cap1_x2, cap1_y2);
-            ctx.moveTo(cap2_x1, cap2_y1); ctx.lineTo(cap2_x2, cap2_y2);
-            ctx.stroke();
-            if (text) {
-                const midX = (startX + endX) / 2; const midY = (startY + endY) / 2;
-                ctx.save();
-                ctx.translate(midX, midY);
-                ctx.rotate(angle);
-                if (angle > Math.PI / 2 || angle < -Math.PI / 2) ctx.rotate(Math.PI);
-                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                ctx.fillText(text, 0, 0); 
-                ctx.restore();
-            }
-            if (index === hoveredMeasurementIndex && currentTool === 'measure') {
-                const buttonPos = getDeleteButtonPosition(m);
+            
+            function drawBrushStroke(stroke) {
+                ctx.strokeStyle = stroke.color;
+                ctx.lineWidth = stroke.size;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
                 ctx.beginPath();
-                ctx.arc(buttonPos.x, buttonPos.y, DELETE_BUTTON_RADIUS, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(239, 68, 68, 0.9)';
-                ctx.fill();
-                ctx.strokeStyle = 'white'; ctx.lineWidth = 3;
-                ctx.beginPath();
-                ctx.moveTo(buttonPos.x - 6, buttonPos.y - 6); ctx.lineTo(buttonPos.x + 6, buttonPos.y + 6);
-                ctx.moveTo(buttonPos.x + 6, buttonPos.y - 6); ctx.lineTo(buttonPos.x - 6, buttonPos.y + 6);
+                ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
+                for (let i = 1; i < stroke.points.length; i++) { ctx.lineTo(stroke.points[i].x, stroke.points[i].y); }
                 ctx.stroke();
             }
-        }
 
-        function selectMeasureColor(e) {
-            if (e.target.classList.contains('color-swatch')) {
-                colorPalette.querySelectorAll('.color-swatch').forEach(swatch => swatch.classList.remove('selected'));
-                e.target.classList.add('selected');
-                measureColor = e.target.dataset.color;
+            function getDeleteButtonPosition(m) {
+                 const angle = Math.atan2(m.endY - m.startY, m.endX - m.startX);
+                 const perpAngle = angle + Math.PI / 2;
+                 return { x: m.endX + (CAP_LENGTH + 5) * Math.cos(perpAngle), y: m.endY + (CAP_LENGTH + 5) * Math.sin(perpAngle) };
             }
-        }
 
-        function downloadImage() {
-            hoveredMeasurementIndex = -1;
-            redrawCanvas();
-            const link = document.createElement('a');
-            link.download = 'arelyshop-medidas.png';
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-        }
-        
-        function clearAll() {
-            measurements = [];
-            brushStrokes = [];
-            hoveredMeasurementIndex = -1;
-            redrawCanvas();
-        }
-
-        initMedidas();
-
-        // --- LÓGICA DE COLLAGE (NUEVA Y ACTUALIZADA) ---
-        const collageImageLoader = document.getElementById('collage-image-loader');
-        const loadMultipleCollageBtn = document.getElementById('load-multiple-collage-btn');
-        const collageMultipleLoader = document.getElementById('collage-multiple-loader');
-        const collageCells = document.querySelectorAll('.collage-cell');
-        const downloadCollageBtn = document.getElementById('download-collage-btn');
-        const clearCollageBtn = document.getElementById('clear-collage-btn');
-        let activeCell = null;
-        let draggedItem = null;
-
-        function setCellImage(cell, file) {
-             const reader = new FileReader();
-             reader.onload = (event) => {
-                 cell.style.backgroundImage = `url('${event.target.result}')`;
-                 cell.classList.add('has-image');
-             };
-             reader.readAsDataURL(file);
-        }
-
-        function clearCell(cell) {
-            cell.style.backgroundImage = '';
-            cell.classList.remove('has-image');
-        }
-
-        collageCells.forEach(cell => {
-            const deleteBtn = cell.querySelector('.delete-cell-btn');
-
-            cell.addEventListener('click', () => {
-                activeCell = cell;
-                collageImageLoader.click();
-            });
-
-            deleteBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                clearCell(cell);
-            });
-
-            cell.addEventListener('dragstart', () => {
-                draggedItem = cell;
-                setTimeout(() => cell.classList.add('dragging'), 0);
-            });
-
-            cell.addEventListener('dragend', () => {
-                draggedItem.classList.remove('dragging');
-                draggedItem = null;
-            });
-
-            cell.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                cell.classList.add('drag-over-target');
-            });
-
-            cell.addEventListener('dragleave', () => {
-                cell.classList.remove('drag-over-target');
-            });
-
-            cell.addEventListener('drop', (e) => {
-                e.preventDefault();
-                cell.classList.remove('drag-over-target');
-                
-                if (e.dataTransfer.files.length > 0) {
-                    const file = e.dataTransfer.files[0];
-                    if (file.type.startsWith('image/')) {
-                        setCellImage(cell, file);
+            function drawMeasurementLine(m, index) {
+                const { startX, startY, endX, endY, color, text = '' } = m;
+                ctx.strokeStyle = color;
+                ctx.fillStyle = color;
+                ctx.lineWidth = (index === hoveredMeasurementIndex && currentTool === 'measure') ? LINE_WIDTH + 2 : LINE_WIDTH;
+                ctx.font = `bold ${TEXT_SIZE}px Inter`;
+                const angle = Math.atan2(endY - startY, endX - startX);
+                const perpAngle = angle + Math.PI / 2;
+                const cap1_x1 = startX + CAP_LENGTH * Math.cos(perpAngle); const cap1_y1 = startY + CAP_LENGTH * Math.sin(perpAngle);
+                const cap1_x2 = startX - CAP_LENGTH * Math.cos(perpAngle); const cap1_y2 = startY - CAP_LENGTH * Math.sin(perpAngle);
+                const cap2_x1 = endX + CAP_LENGTH * Math.cos(perpAngle); const cap2_y1 = endY + CAP_LENGTH * Math.sin(perpAngle);
+                const cap2_x2 = endX - CAP_LENGTH * Math.cos(perpAngle); const cap2_y2 = endY - CAP_LENGTH * Math.sin(perpAngle);
+                ctx.beginPath();
+                if (text) {
+                    const textMetrics = ctx.measureText(text);
+                    const textWidth = textMetrics.width + 10;
+                    const lineLength = Math.hypot(endX - startX, endY - startY);
+                    const segmentLength = (lineLength - textWidth) / 2;
+                    if (segmentLength > 0) {
+                        const gapStartX = startX + segmentLength * Math.cos(angle); const gapStartY = startY + segmentLength * Math.sin(angle);
+                        const gapEndX = endX - segmentLength * Math.cos(angle); const gapEndY = endY - segmentLength * Math.sin(angle);
+                        ctx.moveTo(startX, startY); ctx.lineTo(gapStartX, gapStartY);
+                        ctx.moveTo(gapEndX, gapEndY); ctx.lineTo(endX, endY);
                     }
-                } 
-                else if (draggedItem && draggedItem !== cell) {
-                    const sourceBg = draggedItem.style.backgroundImage;
-                    const targetBg = cell.style.backgroundImage;
-                    draggedItem.style.backgroundImage = targetBg;
-                    cell.style.backgroundImage = sourceBg;
-                    
-                    const sourceHasImage = draggedItem.classList.contains('has-image');
-                    const targetHasImage = cell.classList.contains('has-image');
-                    draggedItem.classList.toggle('has-image', targetHasImage);
-                    cell.classList.toggle('has-image', sourceHasImage);
+                } else { ctx.moveTo(startX, startY); ctx.lineTo(endX, endY); }
+                ctx.moveTo(cap1_x1, cap1_y1); ctx.lineTo(cap1_x2, cap1_y2);
+                ctx.moveTo(cap2_x1, cap2_y1); ctx.lineTo(cap2_x2, cap2_y2);
+                ctx.stroke();
+                if (text) {
+                    const midX = (startX + endX) / 2; const midY = (startY + endY) / 2;
+                    ctx.save();
+                    ctx.translate(midX, midY);
+                    ctx.rotate(angle);
+                    if (angle > Math.PI / 2 || angle < -Math.PI / 2) ctx.rotate(Math.PI);
+                    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    ctx.fillText(text, 0, 0); 
+                    ctx.restore();
                 }
-            });
-        });
-
-        collageImageLoader.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file && activeCell) {
-                setCellImage(activeCell, file);
+                if (index === hoveredMeasurementIndex && currentTool === 'measure') {
+                    const buttonPos = getDeleteButtonPosition(m);
+                    ctx.beginPath();
+                    ctx.arc(buttonPos.x, buttonPos.y, DELETE_BUTTON_RADIUS, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(239, 68, 68, 0.9)';
+                    ctx.fill();
+                    ctx.strokeStyle = 'white'; ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(buttonPos.x - 6, buttonPos.y - 6); ctx.lineTo(buttonPos.x + 6, buttonPos.y + 6);
+                    ctx.moveTo(buttonPos.x + 6, buttonPos.y - 6); ctx.lineTo(buttonPos.x - 6, buttonPos.y + 6);
+                    ctx.stroke();
+                }
             }
-            e.target.value = '';
-        });
 
-        loadMultipleCollageBtn.addEventListener('click', () => {
-            collageMultipleLoader.click();
-        });
+            function selectMeasureColor(e) {
+                if (e.target.classList.contains('color-swatch')) {
+                    colorPalette.querySelectorAll('.color-swatch').forEach(swatch => swatch.classList.remove('selected'));
+                    e.target.classList.add('selected');
+                    measureColor = e.target.dataset.color;
+                }
+            }
 
-        collageMultipleLoader.addEventListener('change', (e) => {
-            const files = e.target.files;
-            if (!files.length) return;
-
-            const emptyCells = Array.from(collageCells).filter(cell => !cell.classList.contains('has-image'));
+            function downloadImage() {
+                hoveredMeasurementIndex = -1;
+                redrawCanvas();
+                const link = document.createElement('a');
+                link.download = 'arelyshop-medidas.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            }
             
-            for (let i = 0; i < Math.min(files.length, emptyCells.length); i++) {
-                setCellImage(emptyCells[i], files[i]);
+            function clearAll() {
+                measurements = [];
+                brushStrokes = [];
+                hoveredMeasurementIndex = -1;
+                redrawCanvas();
             }
 
-            e.target.value = '';
-        });
+            initMedidas();
+        })();
 
+        // --- LÓGICA DE COLLAGE ---
+        (() => {
+            const collageImageLoader = document.getElementById('collage-image-loader');
+            const loadMultipleCollageBtn = document.getElementById('load-multiple-collage-btn');
+            const collageMultipleLoader = document.getElementById('collage-multiple-loader');
+            const collageCells = document.querySelectorAll('.collage-cell');
+            const downloadCollageBtn = document.getElementById('download-collage-btn');
+            const clearCollageBtn = document.getElementById('clear-collage-btn');
+            let activeCell = null;
+            let draggedItem = null;
 
-        clearCollageBtn.addEventListener('click', () => {
-            collageCells.forEach(cell => clearCell(cell));
-        });
-
-        downloadCollageBtn.addEventListener('click', () => {
-            const collageCanvas = document.createElement('canvas');
-            const collageCtx = collageCanvas.getContext('2d');
-            
-            const activeCells = Array.from(document.querySelectorAll('.collage-cell.has-image'));
-            const imageCount = activeCells.length;
-
-            let finalWidth, finalHeight, segmentWidth, segmentHeight;
-            let isTwoImageHorizontalLayout = false;
-
-            if (imageCount === 2) {
-                finalWidth = 1200;
-                finalHeight = 600;
-                segmentWidth = 600;
-                segmentHeight = 600;
-                isTwoImageHorizontalLayout = true;
-            } else {
-                finalWidth = 1200;
-                finalHeight = 1200;
-                segmentWidth = 600;
-                segmentHeight = 600;
+            function setCellImage(cell, file) {
+                 const reader = new FileReader();
+                 reader.onload = (event) => {
+                     cell.style.backgroundImage = `url('${event.target.result}')`;
+                     cell.classList.add('has-image');
+                 };
+                 reader.readAsDataURL(file);
             }
 
-            collageCanvas.width = finalWidth;
-            collageCanvas.height = finalHeight;
-            collageCtx.fillStyle = '#FFFFFF';
-            collageCtx.fillRect(0, 0, finalWidth, finalHeight);
+            function clearCell(cell) {
+                cell.style.backgroundImage = '';
+                cell.classList.remove('has-image');
+            }
 
-            const imagePromises = [];
+            collageCells.forEach(cell => {
+                const deleteBtn = cell.querySelector('.delete-cell-btn');
 
-            if (isTwoImageHorizontalLayout) {
-                activeCells.forEach((cell, index) => {
-                    const promise = new Promise((resolve) => {
-                        const img = new Image();
-                        const bgImage = cell.style.backgroundImage;
-                        img.src = bgImage.substring(5, bgImage.length - 2);
-                        img.onload = () => {
-                            const x = index * segmentWidth;
-                            const y = 0;
-                            
-                            const hRatio = segmentWidth / img.width;
-                            const vRatio = segmentHeight / img.height;
-                            const ratio = Math.max(hRatio, vRatio);
-                            const newWidth = img.width * ratio;
-                            const newHeight = img.height * ratio;
-                            const offsetX = (segmentWidth - newWidth) / 2;
-                            const offsetY = (segmentHeight - newHeight) / 2;
-
-                            collageCtx.drawImage(img, x + offsetX, y + offsetY, newWidth, newHeight);
-                            resolve();
-                        };
-                        img.onerror = () => resolve();
-                    });
-                    imagePromises.push(promise);
+                cell.addEventListener('click', () => {
+                    activeCell = cell;
+                    collageImageLoader.click();
                 });
-            } else {
-                collageCells.forEach((cell, index) => {
-                    if (cell.classList.contains('has-image')) {
+
+                deleteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    clearCell(cell);
+                });
+
+                cell.addEventListener('dragstart', () => {
+                    draggedItem = cell;
+                    setTimeout(() => cell.classList.add('dragging'), 0);
+                });
+
+                cell.addEventListener('dragend', () => {
+                    draggedItem.classList.remove('dragging');
+                    draggedItem = null;
+                });
+
+                cell.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    cell.classList.add('drag-over-target');
+                });
+
+                cell.addEventListener('dragleave', () => {
+                    cell.classList.remove('drag-over-target');
+                });
+
+                cell.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    cell.classList.remove('drag-over-target');
+                    
+                    if (e.dataTransfer.files.length > 0) {
+                        const file = e.dataTransfer.files[0];
+                        if (file.type.startsWith('image/')) {
+                            setCellImage(cell, file);
+                        }
+                    } 
+                    else if (draggedItem && draggedItem !== cell) {
+                        const sourceBg = draggedItem.style.backgroundImage;
+                        const targetBg = cell.style.backgroundImage;
+                        draggedItem.style.backgroundImage = targetBg;
+                        cell.style.backgroundImage = sourceBg;
+                        
+                        const sourceHasImage = draggedItem.classList.contains('has-image');
+                        const targetHasImage = cell.classList.contains('has-image');
+                        draggedItem.classList.toggle('has-image', targetHasImage);
+                        cell.classList.toggle('has-image', sourceHasImage);
+                    }
+                });
+            });
+
+            collageImageLoader.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file && activeCell) {
+                    setCellImage(activeCell, file);
+                }
+                e.target.value = '';
+            });
+
+            loadMultipleCollageBtn.addEventListener('click', () => {
+                collageMultipleLoader.click();
+            });
+
+            collageMultipleLoader.addEventListener('change', (e) => {
+                const files = e.target.files;
+                if (!files.length) return;
+
+                const emptyCells = Array.from(collageCells).filter(cell => !cell.classList.contains('has-image'));
+                
+                for (let i = 0; i < Math.min(files.length, emptyCells.length); i++) {
+                    setCellImage(emptyCells[i], files[i]);
+                }
+
+                e.target.value = '';
+            });
+
+
+            clearCollageBtn.addEventListener('click', () => {
+                collageCells.forEach(cell => clearCell(cell));
+            });
+
+            downloadCollageBtn.addEventListener('click', () => {
+                const collageCanvas = document.createElement('canvas');
+                const collageCtx = collageCanvas.getContext('2d');
+                
+                const activeCells = Array.from(document.querySelectorAll('.collage-cell.has-image'));
+                const imageCount = activeCells.length;
+
+                let finalWidth, finalHeight, segmentWidth, segmentHeight;
+                let isTwoImageHorizontalLayout = false;
+
+                if (imageCount === 2) {
+                    finalWidth = 1200;
+                    finalHeight = 600;
+                    segmentWidth = 600;
+                    segmentHeight = 600;
+                    isTwoImageHorizontalLayout = true;
+                } else {
+                    finalWidth = 1200;
+                    finalHeight = 1200;
+                    segmentWidth = 600;
+                    segmentHeight = 600;
+                }
+
+                collageCanvas.width = finalWidth;
+                collageCanvas.height = finalHeight;
+                collageCtx.fillStyle = '#FFFFFF';
+                collageCtx.fillRect(0, 0, finalWidth, finalHeight);
+
+                const imagePromises = [];
+
+                const drawImageToCanvas = (img, x, y, width, height) => {
+                    const hRatio = width / img.width;
+                    const vRatio = height / img.height;
+                    const ratio = Math.min(hRatio, vRatio);
+                    const newWidth = img.width * ratio;
+                    const newHeight = img.height * ratio;
+                    const offsetX = (width - newWidth) / 2;
+                    const offsetY = (height - newHeight) / 2;
+                    collageCtx.drawImage(img, x + offsetX, y + offsetY, newWidth, newHeight);
+                };
+
+                if (isTwoImageHorizontalLayout) {
+                    activeCells.forEach((cell, index) => {
                         const promise = new Promise((resolve) => {
                             const img = new Image();
                             const bgImage = cell.style.backgroundImage;
                             img.src = bgImage.substring(5, bgImage.length - 2);
                             img.onload = () => {
-                                const x = (index % 2) * segmentWidth;
-                                const y = Math.floor(index / 2) * segmentHeight;
-                                const hRatio = segmentWidth / img.width;
-                                const vRatio = segmentHeight / img.height;
-                                const ratio = Math.max(hRatio, vRatio);
-                                const newWidth = img.width * ratio;
-                                const newHeight = img.height * ratio;
-                                const offsetX = (segmentWidth - newWidth) / 2;
-                                const offsetY = (segmentHeight - newHeight) / 2;
-                                collageCtx.drawImage(img, x + offsetX, y + offsetY, newWidth, newHeight);
+                                const x = index * segmentWidth;
+                                const y = 0;
+                                drawImageToCanvas(img, x, y, segmentWidth, segmentHeight);
                                 resolve();
                             };
                             img.onerror = () => resolve();
                         });
                         imagePromises.push(promise);
-                    }
+                    });
+                } else {
+                    collageCells.forEach((cell, index) => {
+                        if (cell.classList.contains('has-image')) {
+                            const promise = new Promise((resolve) => {
+                                const img = new Image();
+                                const bgImage = cell.style.backgroundImage;
+                                img.src = bgImage.substring(5, bgImage.length - 2);
+                                img.onload = () => {
+                                    const x = (index % 2) * segmentWidth;
+                                    const y = Math.floor(index / 2) * segmentHeight;
+                                    drawImageToCanvas(img, x, y, segmentWidth, segmentHeight);
+                                    resolve();
+                                };
+                                img.onerror = () => resolve();
+                            });
+                            imagePromises.push(promise);
+                        }
+                    });
+                }
+
+                Promise.all(imagePromises).then(() => {
+                    const link = document.createElement('a');
+                    link.download = 'arelyshop-collage.png';
+                    link.href = collageCanvas.toDataURL('image/png');
+                    link.click();
                 });
+            });
+        })();
+
+        // --- LÓGICA DE PRECIOS ---
+        (() => {
+            const priceInput = document.getElementById('price-input');
+            const watermarkInput = document.getElementById('watermark-input');
+            const downloadBtn = document.getElementById('download-price-btn');
+            const clearBtn = document.getElementById('clear-price-btn');
+            const placeholder = document.getElementById('precios-placeholder-text');
+            const previewsContainer = document.getElementById('precios-previews-container');
+            const imageLoader = document.getElementById('precios-image-loader');
+
+            let priceImages = []; // Almacenará {file, image, canvas, ctx}
+
+            const faBrandsFont = new FontFace('FontAwesomeBrands', 'url(https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/webfonts/fa-brands-400.woff2)');
+            const faSolidFont = new FontFace('FontAwesomeSolid', 'url(https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/webfonts/fa-solid-900.woff2)');
+            
+            Promise.all([faBrandsFont.load(), faSolidFont.load()]).then((loadedFonts) => {
+                document.fonts.add(loadedFonts[0]);
+                document.fonts.add(loadedFonts[1]);
+                drawAll();
+            });
+
+            function drawSingle(imgData) {
+                const { image, canvas, ctx } = imgData;
+                if (!image || !image.src) return;
+
+                const hRatio = canvas.width / image.width;
+                const vRatio = canvas.height / image.height;
+                const ratio = Math.min(hRatio, vRatio);
+                const centerShiftX = (canvas.width - image.width * ratio) / 2;
+                const centerShiftY = (canvas.height - image.height * ratio) / 2;
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(image, 0, 0, image.width, image.height, centerShiftX, centerShiftY, image.width * ratio, image.height * ratio);
+
+                // --- DIBUJAR MARCAS DE AGUA ---
+                ctx.save();
+                const watermarkText = watermarkInput.value || '';
+                
+                if (watermarkText) {
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+                    ctx.textBaseline = 'middle';
+                    ctx.textAlign = 'center';
+                    
+                    ctx.translate(canvas.width / 2, canvas.height / 2);
+                    ctx.rotate(-Math.PI / 4);
+
+                    ctx.font = 'bold 80px Inter';
+                    ctx.fillText(watermarkText, 0, 0);
+                }
+                ctx.restore();
+
+                // --- DIBUJAR PRECIO CENTRADO ---
+                const priceText = `Bs. ${priceInput.value || '0'}`;
+                const priceFontSize = 60;
+                const tagIcon = '\uf02b';
+                
+                ctx.font = `900 ${priceFontSize}px FontAwesomeSolid`;
+                const tagIconWidth = ctx.measureText(tagIcon).width;
+                ctx.font = `bold ${priceFontSize}px Inter`;
+                const priceTextWidth = ctx.measureText(priceText).width;
+                const totalWidth = tagIconWidth + 15 + priceTextWidth;
+                const boxPadding = 30;
+                const boxWidth = totalWidth + boxPadding * 2;
+                const boxHeight = priceFontSize + 30;
+
+                const boxX = (canvas.width - boxWidth) / 2;
+                const boxY = canvas.height - boxHeight - 20;
+
+                ctx.fillStyle = '#ef4444';
+                ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+
+                ctx.fillStyle = 'white';
+                ctx.textBaseline = 'middle';
+                
+                ctx.font = `900 ${priceFontSize}px FontAwesomeSolid`;
+                ctx.fillText(tagIcon, boxX + boxPadding, boxY + boxHeight / 2);
+                
+                ctx.font = `bold ${priceFontSize}px Inter`;
+                ctx.fillText(priceText, boxX + boxPadding + tagIconWidth + 15, boxY + boxHeight / 2);
             }
 
-            Promise.all(imagePromises).then(() => {
-                const link = document.createElement('a');
-                link.download = 'arelyshop-collage.png';
-                link.href = collageCanvas.toDataURL('image/png');
-                link.click();
+            function drawAll() {
+                if (priceImages.length === 0) {
+                    placeholder.style.display = 'block';
+                    downloadBtn.disabled = true;
+                    clearBtn.disabled = true;
+                } else {
+                    placeholder.style.display = 'none';
+                    downloadBtn.disabled = false;
+                    clearBtn.disabled = false;
+                }
+                priceImages.forEach(drawSingle);
+            }
+
+            function handleFiles(files) {
+                previewsContainer.innerHTML = '';
+                priceImages = [];
+                if (files.length === 0) {
+                    drawAll();
+                    return;
+                }
+
+                for (const file of files) {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 1000;
+                    canvas.height = 1000;
+                    const ctx = canvas.getContext('2d');
+
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'price-preview-wrapper';
+                    
+                    const downloadSingleBtn = document.createElement('button');
+                    downloadSingleBtn.className = 'download-single-price-btn';
+                    downloadSingleBtn.innerHTML = '<i class="fa-solid fa-download"></i>';
+                    
+                    wrapper.appendChild(canvas);
+                    wrapper.appendChild(downloadSingleBtn);
+                    previewsContainer.appendChild(wrapper);
+
+                    const image = new Image();
+                    const imgData = { file, image, canvas, ctx };
+                    priceImages.push(imgData);
+
+                    downloadSingleBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const link = document.createElement('a');
+                        const originalName = imgData.file.name.replace(/\.[^/.]+$/, "");
+                        link.download = `${originalName}-precio.png`;
+                        link.href = imgData.canvas.toDataURL('image/png');
+                        link.click();
+                    });
+
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        image.onload = () => drawSingle(imgData);
+                        image.src = event.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                }
+                drawAll();
+            }
+
+            function clearAll() {
+                priceImages = [];
+                previewsContainer.innerHTML = '';
+                priceInput.value = '';
+                watermarkInput.value = 'ArelyShop';
+                imageLoader.value = '';
+                drawAll();
+            }
+
+            imageLoader.addEventListener('change', (e) => handleFiles(e.target.files));
+            priceInput.addEventListener('input', drawAll);
+            watermarkInput.addEventListener('input', drawAll);
+            clearBtn.addEventListener('click', clearAll);
+
+            downloadBtn.addEventListener('click', () => {
+                priceImages.forEach((imgData) => {
+                    const link = document.createElement('a');
+                    const originalName = imgData.file.name.replace(/\.[^/.]+$/, "");
+                    link.download = `${originalName}-precio.png`;
+                    link.href = imgData.canvas.toDataURL('image/png');
+                    link.click();
+                });
             });
-        });
+
+            drawAll();
+        })();
     });
     </script>
 </body>
