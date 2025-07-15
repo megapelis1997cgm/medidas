@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Herramienta de Medición de Productos - ArelyShop</title>
+    <title>Herramientas de Diseño - ArelyShop</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,6 +13,7 @@
             font-family: 'Inter', sans-serif;
             background-color: #f1f5f9; /* slate-100 */
         }
+        /* Estilos Medidas */
         #canvas-container {
             width: 100%;
             max-width: 600px;
@@ -24,32 +25,83 @@
             border-color: #3b82f6; /* blue-500 */
             background-color: #eff6ff; /* blue-50 */
         }
-        canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
+        canvas { display: block; width: 100%; height: 100%; }
         .color-swatch {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
+            width: 32px; height: 32px; border-radius: 50%; cursor: pointer;
+            border: 3px solid transparent; transition: border-color 0.2s;
+        }
+        .color-swatch.selected { border-color: #3b82f6; box-shadow: 0 0 0 2px white; }
+        #modal { background-color: rgba(0, 0, 0, 0.5); }
+        
+        /* Estilos Pestañas y Herramientas */
+        .tool-tab { transition: background-color 0.2s, color 0.2s, border-color 0.2s; }
+        .tool-tab.active { background-color: #3b82f6; color: white; border-color: #3b82f6; }
+        .tool-btn { transition: background-color 0.2s, color 0.2s; }
+        .tool-btn.active { background-color: #3b82f6; color: white; }
+
+        /* Estilos Collage */
+        .collage-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+            gap: 0.75rem; /* gap-3 */
+            width: 100%;
+            max-width: 600px;
+            aspect-ratio: 1 / 1;
+        }
+        .collage-cell {
+            background-color: #e2e8f0; /* slate-200 */
+            border: 2px dashed #94a3b8; /* slate-400 */
+            border-radius: 0.5rem; /* rounded-lg */
+            display: flex;
+            align-items: center;
+            justify-content: center;
             cursor: pointer;
-            border: 3px solid transparent;
-            transition: border-color 0.2s;
+            background-size: cover;
+            background-position: center;
+            position: relative;
+            transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
         }
-        .color-swatch.selected {
+        .collage-cell .placeholder {
+            color: #64748b; /* slate-500 */
+            text-align: center;
+            pointer-events: none; /* Para que no interfiera con el drop */
+        }
+        .collage-cell.has-image .placeholder { display: none; }
+        .collage-cell.dragging {
+            opacity: 0.5;
+            transform: scale(0.95);
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+        }
+        .collage-cell.drag-over-target {
+            border-style: solid;
             border-color: #3b82f6; /* blue-500 */
-            box-shadow: 0 0 0 2px white;
+            transform: scale(1.02);
         }
-        #modal {
-            background-color: rgba(0, 0, 0, 0.5);
-        }
-        .tool-btn {
-            transition: background-color 0.2s, color 0.2s;
-        }
-        .tool-btn.active {
-            background-color: #3b82f6; /* blue-600 */
+        .delete-cell-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            width: 2rem;
+            height: 2rem;
+            background-color: rgba(239, 68, 68, 0.8); /* red-500 con opacidad */
             color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 1.5rem;
+            line-height: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.2s;
+            z-index: 10;
+            display: none; /* Oculto por defecto */
+        }
+        .collage-cell.has-image .delete-cell-btn {
+            display: block; /* Visible cuando hay imagen */
+        }
+        .delete-cell-btn:hover {
+            background-color: #dc2626; /* red-600 */
+            transform: scale(1.1);
         }
     </style>
 </head>
@@ -64,71 +116,102 @@
 
     <!-- Contenido principal -->
     <main class="flex-grow container mx-auto p-4 md:p-8 flex flex-col items-center">
-        <div class="w-full max-w-5xl flex flex-col lg:flex-row gap-8">
-            <!-- Columna de Controles -->
-            <div class="w-full lg:w-1/3 space-y-6">
-                <div class="bg-white p-6 rounded-lg shadow-md">
-                    <h2 class="text-xl font-bold text-slate-800 mb-4">1. Cargar Imagen</h2>
-                    <label for="image-loader" class="w-full inline-block text-center bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition cursor-pointer">
-                        Seleccionar Foto
-                    </label>
-                    <input type="file" id="image-loader" class="hidden" accept="image/*">
-                </div>
-
-                <div class="bg-white p-6 rounded-lg shadow-md">
-                    <h2 class="text-xl font-bold text-slate-800 mb-4">2. Herramientas</h2>
-                    <div class="flex rounded-md shadow-sm">
-                        <button id="tool-measure" class="tool-btn active w-1/2 p-2 border border-slate-300 rounded-l-lg">Medir</button>
-                        <button id="tool-brush" class="tool-btn w-1/2 p-2 border-t border-b border-r border-slate-300 rounded-r-lg">Pincel</button>
-                    </div>
-                </div>
-                
-                <div id="measure-controls" class="bg-white p-6 rounded-lg shadow-md space-y-4">
-                    <h3 class="text-lg font-semibold text-slate-700">Color de Medida</h3>
-                    <div id="color-palette" class="flex justify-center gap-4">
-                        <div class="color-swatch selected" style="background-color: #000000;" data-color="#000000"></div>
-                        <div class="color-swatch" style="background-color: #ef4444;" data-color="#ef4444"></div>
-                        <div class="color-swatch" style="background-color: #3b82f6;" data-color="#3b82f6"></div>
-                        <div class="color-swatch" style="background-color: #22c55e;" data-color="#22c55e"></div>
-                        <div class="color-swatch" style="background-color: #f97316;" data-color="#f97316"></div>
-                    </div>
-                </div>
-
-                <!-- Controles del Pincel -->
-                <div id="brush-controls" class="bg-white p-6 rounded-lg shadow-md space-y-4 hidden">
-                    <div>
-                        <h3 class="text-lg font-semibold text-slate-700 mb-2">Color de Pincel</h3>
-                        <input type="color" id="brush-color-picker" value="#FFFFFF" class="w-full h-10 p-1 border border-slate-300 rounded-md cursor-pointer">
-                    </div>
-                    <div>
-                        <label for="brush-size-slider" class="text-lg font-semibold text-slate-700">Tamaño: <span id="brush-size-value">20</span>px</label>
-                        <input type="range" id="brush-size-slider" min="1" max="100" value="20" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer">
-                    </div>
-                </div>
-
-                <div class="bg-white p-6 rounded-lg shadow-md">
-                    <h2 class="text-xl font-bold text-slate-800 mb-4">3. Acciones</h2>
-                    <div class="space-y-4">
-                        <button id="download-btn" class="w-full bg-emerald-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-emerald-700 transition disabled:bg-slate-400 disabled:cursor-not-allowed" disabled>
-                            Descargar Imagen
-                        </button>
-                        <button id="reset-btn" class="w-full bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition disabled:bg-slate-400 disabled:cursor-not-allowed" disabled>
-                            Limpiar Todo
-                        </button>
-                    </div>
-                </div>
+        
+        <!-- Pestañas de Herramientas -->
+        <div class="w-full max-w-5xl mb-8">
+            <div class="flex border-b border-slate-300">
+                <button id="tab-medidas" class="tool-tab active -mb-px py-2 px-4 font-semibold text-slate-600 border-b-2 border-transparent rounded-t-lg">Medidas</button>
+                <button id="tab-collage" class="tool-tab py-2 px-4 font-semibold text-slate-600 border-b-2 border-transparent rounded-t-lg">Collage</button>
             </div>
+        </div>
 
-            <!-- Columna del Canvas -->
-            <div class="w-full lg:w-2/3 flex flex-col items-center">
-                <div id="canvas-container" class="bg-white rounded-lg shadow-md flex items-center justify-center relative">
-                    <canvas id="canvas" width="1000" height="1000"></canvas>
-                    <div id="placeholder-text" class="absolute text-center text-slate-400 p-4 pointer-events-none">
-                        <p class="text-lg font-semibold">Arrastra y suelta una imagen aquí</p>
+        <!-- Contenedor Herramienta de Medidas -->
+        <div id="medidas-tool" class="w-full">
+            <div class="w-full max-w-5xl flex flex-col lg:flex-row gap-8 mx-auto">
+                <!-- Columna de Controles (Medidas) -->
+                <div class="w-full lg:w-1/3 space-y-6">
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h2 class="text-xl font-bold text-slate-800 mb-4">1. Cargar Imagen</h2>
+                        <label for="image-loader" class="w-full inline-block text-center bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition cursor-pointer">Seleccionar Foto</label>
+                        <input type="file" id="image-loader" class="hidden" accept="image/*">
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h2 class="text-xl font-bold text-slate-800 mb-4">2. Herramientas</h2>
+                        <div class="flex rounded-md shadow-sm">
+                            <button id="tool-measure" class="tool-btn active w-1/2 p-2 border border-slate-300 rounded-l-lg">Medir</button>
+                            <button id="tool-brush" class="tool-btn w-1/2 p-2 border-t border-b border-r border-slate-300 rounded-r-lg">Pincel</button>
+                        </div>
+                    </div>
+                    <div id="measure-controls" class="bg-white p-6 rounded-lg shadow-md space-y-4">
+                        <h3 class="text-lg font-semibold text-slate-700">Color de Medida</h3>
+                        <div id="color-palette" class="flex justify-center gap-4">
+                            <div class="color-swatch selected" style="background-color: #000000;" data-color="#000000"></div>
+                            <div class="color-swatch" style="background-color: #ef4444;" data-color="#ef4444"></div>
+                            <div class="color-swatch" style="background-color: #3b82f6;" data-color="#3b82f6"></div>
+                            <div class="color-swatch" style="background-color: #22c55e;" data-color="#22c55e"></div>
+                            <div class="color-swatch" style="background-color: #f97316;" data-color="#f97316"></div>
+                        </div>
+                    </div>
+                    <div id="brush-controls" class="bg-white p-6 rounded-lg shadow-md space-y-4 hidden">
+                        <div>
+                            <h3 class="text-lg font-semibold text-slate-700 mb-2">Color de Pincel</h3>
+                            <input type="color" id="brush-color-picker" value="#FFFFFF" class="w-full h-10 p-1 border border-slate-300 rounded-md cursor-pointer">
+                        </div>
+                        <div>
+                            <label for="brush-size-slider" class="text-lg font-semibold text-slate-700">Tamaño: <span id="brush-size-value">20</span>px</label>
+                            <input type="range" id="brush-size-slider" min="1" max="100" value="20" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h2 class="text-xl font-bold text-slate-800 mb-4">3. Acciones</h2>
+                        <div class="space-y-4">
+                            <button id="download-btn" class="w-full bg-emerald-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-emerald-700 transition disabled:bg-slate-400 disabled:cursor-not-allowed" disabled>Descargar Imagen</button>
+                            <button id="reset-btn" class="w-full bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition disabled:bg-slate-400 disabled:cursor-not-allowed" disabled>Limpiar Todo</button>
+                        </div>
+                    </div>
+                </div>
+                <!-- Columna del Canvas (Medidas) -->
+                <div class="w-full lg:w-2/3 flex flex-col items-center">
+                    <div id="canvas-container" class="bg-white rounded-lg shadow-md flex items-center justify-center relative">
+                        <canvas id="canvas" width="1000" height="1000"></canvas>
+                        <div id="placeholder-text" class="absolute text-center text-slate-400 p-4 pointer-events-none">
+                            <p class="text-lg font-semibold">Arrastra y suelta una imagen aquí</p>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
+
+        <!-- Contenedor Herramienta de Collage -->
+        <div id="collage-tool" class="w-full hidden">
+             <div class="w-full max-w-5xl flex flex-col lg:flex-row gap-8 mx-auto">
+                <!-- Columna de Controles (Collage) -->
+                <div class="w-full lg:w-1/3 space-y-6">
+                     <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h2 class="text-xl font-bold text-slate-800 mb-4">1. Cargar Imágenes</h2>
+                        <p class="text-slate-600 mb-4">Haz clic o arrastra una imagen a cada cuadro. Luego, arrastra entre cuadros para reordenar.</p>
+                        <input type="file" id="collage-image-loader" class="hidden" accept="image/*">
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h2 class="text-xl font-bold text-slate-800 mb-4">2. Acciones</h2>
+                        <div class="space-y-4">
+                            <button id="download-collage-btn" class="w-full bg-emerald-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-emerald-700 transition">Descargar Collage</button>
+                            <button id="clear-collage-btn" class="w-full bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition">Limpiar Todo</button>
+                        </div>
+                    </div>
+                </div>
+                <!-- Columna del Grid (Collage) -->
+                <div class="w-full lg:w-2/3 flex flex-col items-center">
+                    <div class="collage-grid">
+                        <div id="cell-0" class="collage-cell" draggable="true"><div class="placeholder"><span>+</span><p>Imagen 1</p></div><button class="delete-cell-btn">&times;</button></div>
+                        <div id="cell-1" class="collage-cell" draggable="true"><div class="placeholder"><span>+</span><p>Imagen 2</p></div><button class="delete-cell-btn">&times;</button></div>
+                        <div id="cell-2" class="collage-cell" draggable="true"><div class="placeholder"><span>+</span><p>Imagen 3</p></div><button class="delete-cell-btn">&times;</button></div>
+                        <div id="cell-3" class="collage-cell" draggable="true"><div class="placeholder"><span>+</span><p>Imagen 4</p></div><button class="delete-cell-btn">&times;</button></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </main>
 
     <!-- Modal para medida -->
@@ -144,7 +227,28 @@
     </div>
 
     <script>
-        // --- ELEMENTOS DEL DOM ---
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- PESTAÑAS ---
+        const tabMedidas = document.getElementById('tab-medidas');
+        const tabCollage = document.getElementById('tab-collage');
+        const medidasTool = document.getElementById('medidas-tool');
+        const collageTool = document.getElementById('collage-tool');
+
+        tabMedidas.addEventListener('click', () => {
+            medidasTool.classList.remove('hidden');
+            collageTool.classList.add('hidden');
+            tabMedidas.classList.add('active');
+            tabCollage.classList.remove('active');
+        });
+
+        tabCollage.addEventListener('click', () => {
+            medidasTool.classList.add('hidden');
+            collageTool.classList.remove('hidden');
+            tabCollage.classList.add('active');
+            tabMedidas.classList.remove('active');
+        });
+
+        // --- LÓGICA DE MEDIDAS (EXISTENTE) ---
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
         const imageLoader = document.getElementById('image-loader');
@@ -165,7 +269,6 @@
         const brushSizeSlider = document.getElementById('brush-size-slider');
         const brushSizeValue = document.getElementById('brush-size-value');
 
-        // --- ESTADO DE LA APLICACIÓN ---
         let image = null;
         let measurements = [];
         let brushStrokes = [];
@@ -178,7 +281,6 @@
         let brushColor = '#FFFFFF';
         let brushSize = 20;
         
-        // --- CONSTANTES ---
         const CANVAS_WIDTH = 1000;
         const CANVAS_HEIGHT = 1000;
         const TEXT_SIZE = 30;
@@ -186,124 +288,76 @@
         const CAP_LENGTH = 15;
         const DELETE_BUTTON_RADIUS = 15;
 
-        // --- INICIALIZACIÓN ---
-        function init() {
-            setupEventListeners();
+        function initMedidas() {
+            setupMedidasEventListeners();
             clearCanvas();
         }
 
-        function setupEventListeners() {
+        function setupMedidasEventListeners() {
             imageLoader.addEventListener('change', handleImageUpload);
             canvasContainer.addEventListener('dragover', handleDragOver);
             canvasContainer.addEventListener('dragleave', handleDragLeave);
             canvasContainer.addEventListener('drop', handleDrop);
-            
             canvas.addEventListener('mousedown', handleMouseDown);
             canvas.addEventListener('mousemove', handleMouseMove);
             canvas.addEventListener('mouseup', handleMouseUp);
             canvas.addEventListener('mouseleave', handleMouseLeave);
             canvas.addEventListener('click', handleClick);
-
             downloadBtn.addEventListener('click', downloadImage);
             resetBtn.addEventListener('click', clearAll);
-            
             colorPalette.addEventListener('click', selectMeasureColor);
             toolMeasureBtn.addEventListener('click', () => switchTool('measure'));
             toolBrushBtn.addEventListener('click', () => switchTool('brush'));
-            
-            brushColorPicker.addEventListener('input', (e) => {
-                brushColor = e.target.value;
-                updateCursor();
-            });
-            brushSizeSlider.addEventListener('input', (e) => {
-                brushSize = e.target.value;
-                brushSizeValue.textContent = brushSize;
-                updateCursor();
-            });
-
+            brushColorPicker.addEventListener('input', (e) => { brushColor = e.target.value; updateCursor(); });
+            brushSizeSlider.addEventListener('input', (e) => { brushSize = e.target.value; brushSizeValue.textContent = brushSize; updateCursor(); });
             submitBtn.addEventListener('click', submitMeasurement);
             cancelBtn.addEventListener('click', cancelMeasurement);
-            measurementInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') submitMeasurement();
-                if (e.key === 'Escape') cancelMeasurement();
-            });
-
-            // *** CORRECCIÓN: Actualizar cursor si la ventana cambia de tamaño ***
+            measurementInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitMeasurement(); if (e.key === 'Escape') cancelMeasurement(); });
             window.addEventListener('resize', updateCursor);
         }
         
-        // --- FUNCIÓN CORREGIDA: Crear un cursor dinámico para el pincel ---
         function updateBrushCursor() {
-            // Obtener el tamaño de visualización actual del canvas para calcular la escala
             const rect = canvas.getBoundingClientRect();
-            // Si el ancho es 0, no hacer nada (evita errores si el canvas está oculto)
             if (rect.width === 0) return;
-
-            const scale = rect.width / CANVAS_WIDTH; // p.ej. 600px display / 1000px lógicos = 0.6
-
-            // El tamaño del cursor en píxeles CSS debe ser el tamaño del pincel escalado
+            const scale = rect.width / CANVAS_WIDTH;
             const scaledSize = Math.max(parseInt(brushSize) * scale, 1);
-
             const cursorCanvas = document.createElement('canvas');
             const cursorCtx = cursorCanvas.getContext('2d');
-            
-            // El canvas para el cursor se basa en el tamaño escalado
-            const canvasSize = scaledSize + 4; // Añadir padding para un borde
+            const canvasSize = scaledSize + 4;
             cursorCanvas.width = canvasSize;
             cursorCanvas.height = canvasSize;
-            
             const center = canvasSize / 2;
-
-            // Borde exterior para visibilidad en fondos claros y oscuros
             cursorCtx.beginPath();
             cursorCtx.arc(center, center, scaledSize / 2, 0, 2 * Math.PI);
             cursorCtx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
             cursorCtx.lineWidth = 2.5;
             cursorCtx.stroke();
-            
             cursorCtx.beginPath();
             cursorCtx.arc(center, center, scaledSize / 2, 0, 2 * Math.PI);
             cursorCtx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
             cursorCtx.lineWidth = 1;
             cursorCtx.stroke();
-
-
-            // Relleno con el color del pincel
             cursorCtx.beginPath();
             cursorCtx.arc(center, center, scaledSize / 2, 0, 2 * Math.PI);
             cursorCtx.fillStyle = brushColor;
             cursorCtx.fill();
-
             const dataURL = cursorCanvas.toDataURL();
             canvas.style.cursor = `url(${dataURL}) ${center} ${center}, crosshair`;
         }
 
         function switchTool(tool) {
             currentTool = tool;
-            if (tool === 'measure') {
-                toolMeasureBtn.classList.add('active');
-                toolBrushBtn.classList.remove('active');
-                measureControls.style.display = 'block';
-                brushControls.style.display = 'none';
-            } else { // brush
-                toolBrushBtn.classList.add('active');
-                toolMeasureBtn.classList.remove('active');
-                brushControls.style.display = 'block';
-                measureControls.style.display = 'none';
-            }
+            toolMeasureBtn.classList.toggle('active', tool === 'measure');
+            toolBrushBtn.classList.toggle('active', tool !== 'measure');
+            measureControls.style.display = tool === 'measure' ? 'block' : 'none';
+            brushControls.style.display = tool !== 'measure' ? 'block' : 'none';
             updateCursor();
         }
 
         function updateCursor() {
-            if (!image) {
-                canvas.style.cursor = 'default';
-                return;
-            }
-            if (currentTool === 'measure') {
-                canvas.style.cursor = hoveredMeasurementIndex !== -1 ? 'pointer' : 'crosshair';
-            } else { // brush
-                updateBrushCursor();
-            }
+            if (!image) { canvas.style.cursor = 'default'; return; }
+            if (currentTool === 'measure') { canvas.style.cursor = hoveredMeasurementIndex !== -1 ? 'pointer' : 'crosshair'; } 
+            else { updateBrushCursor(); }
         }
         
         function handleImageUpload(e) { const file = e.target.files[0]; if (file) loadImage(file); }
@@ -319,11 +373,7 @@
             const reader = new FileReader();
             reader.onload = (e) => {
                 image = new Image();
-                image.onload = () => {
-                    clearAll();
-                    enableButtons();
-                    redrawCanvas();
-                };
+                image.onload = () => { clearAll(); enableButtons(); redrawCanvas(); };
                 image.src = e.target.result;
             };
             reader.readAsDataURL(file);
@@ -345,14 +395,11 @@
             if (!image) return;
             const pos = getMousePos(e);
             isDrawing = true;
-
             if (currentTool === 'measure') {
                 if (hoveredMeasurementIndex !== -1) { isDrawing = false; return; }
                 startX = pos.x;
                 startY = pos.y;
-            } else { // brush
-                currentPath = [{ x: pos.x, y: pos.y }];
-            }
+            } else { currentPath = [{ x: pos.x, y: pos.y }]; }
         }
 
         function handleMouseMove(e) {
@@ -367,12 +414,9 @@
                     endX = currentX; endY = currentY;
                     redrawCanvas();
                     drawMeasurementLine({startX, startY, endX, endY, color: measureColor});
-                } else { // brush
-                    if (e.shiftKey && currentPath.length > 0) {
-                        currentPath = [currentPath[0], { x: pos.x, y: pos.y }];
-                    } else {
-                        currentPath.push({ x: pos.x, y: pos.y });
-                    }
+                } else {
+                    if (e.shiftKey && currentPath.length > 0) { currentPath = [currentPath[0], { x: pos.x, y: pos.y }]; } 
+                    else { currentPath.push({ x: pos.x, y: pos.y }); }
                     redrawCanvas();
                 }
             } else if (currentTool === 'measure') {
@@ -380,10 +424,8 @@
                 for (let i = measurements.length - 1; i >= 0; i--) {
                     const m = measurements[i];
                     const buttonPos = getDeleteButtonPosition(m);
-                    const distToButton = Math.hypot(pos.x - buttonPos.x, pos.y - buttonPos.y);
-                    if (distToButton <= DELETE_BUTTON_RADIUS) { newHoverIndex = i; break; }
-                    const distToLine = pointToLineSegmentDistance(pos.x, pos.y, m.startX, m.startY, m.endX, m.endY);
-                    if (distToLine < 10) { newHoverIndex = i; break; }
+                    if (Math.hypot(pos.x - buttonPos.x, pos.y - buttonPos.y) <= DELETE_BUTTON_RADIUS) { newHoverIndex = i; break; }
+                    if (pointToLineSegmentDistance(pos.x, pos.y, m.startX, m.startY, m.endX, m.endY) < 10) { newHoverIndex = i; break; }
                 }
                 if (newHoverIndex !== hoveredMeasurementIndex) {
                     hoveredMeasurementIndex = newHoverIndex;
@@ -396,30 +438,18 @@
         function handleMouseUp() {
             if (!isDrawing) return;
             isDrawing = false;
-            if (currentTool === 'measure') {
-                if (startX !== endX || startY !== endY) showModal();
-            } else { // brush
-                if (currentPath.length > 1) {
-                    brushStrokes.push({ points: currentPath, color: brushColor, size: brushSize });
-                }
-                currentPath = [];
-            }
+            if (currentTool === 'measure') { if (startX !== endX || startY !== endY) showModal(); } 
+            else { if (currentPath.length > 1) { brushStrokes.push({ points: currentPath, color: brushColor, size: brushSize }); } currentPath = []; }
         }
         
         function handleMouseLeave() {
             if (isDrawing) {
                 isDrawing = false;
-                if (currentTool === 'brush' && currentPath.length > 1) {
-                    brushStrokes.push({ points: currentPath, color: brushColor, size: brushSize });
-                }
+                if (currentTool === 'brush' && currentPath.length > 1) { brushStrokes.push({ points: currentPath, color: brushColor, size: brushSize }); }
                 currentPath = [];
                 redrawCanvas();
             }
-            if(hoveredMeasurementIndex !== -1) {
-                hoveredMeasurementIndex = -1;
-                updateCursor();
-                redrawCanvas();
-            }
+            if(hoveredMeasurementIndex !== -1) { hoveredMeasurementIndex = -1; updateCursor(); redrawCanvas(); }
         }
 
         function handleClick(e) {
@@ -427,8 +457,7 @@
                 const pos = getMousePos(e);
                 const m = measurements[hoveredMeasurementIndex];
                 const buttonPos = getDeleteButtonPosition(m);
-                const dist = Math.hypot(pos.x - buttonPos.x, pos.y - buttonPos.y);
-                if (dist <= DELETE_BUTTON_RADIUS) {
+                if (Math.hypot(pos.x - buttonPos.x, pos.y - buttonPos.y) <= DELETE_BUTTON_RADIUS) {
                     measurements.splice(hoveredMeasurementIndex, 1);
                     hoveredMeasurementIndex = -1;
                     updateCursor();
@@ -459,8 +488,8 @@
         function clearCanvas() {
             ctx.fillStyle = '#FFFFFF';
             ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-             if (!image) placeholderText.style.display = 'block';
-             updateCursor();
+            if (!image) placeholderText.style.display = 'block';
+            updateCursor();
         }
         
         function redrawCanvas() {
@@ -472,12 +501,8 @@
                 const centerShiftY = (CANVAS_HEIGHT - image.height * ratio) / 2;
                 ctx.drawImage(image, 0, 0, image.width, image.height, centerShiftX, centerShiftY, image.width * ratio, image.height * ratio);
             }
-            
             brushStrokes.forEach(drawBrushStroke);
-            if (isDrawing && currentTool === 'brush' && currentPath.length > 0) {
-                 drawBrushStroke({ points: currentPath, color: brushColor, size: brushSize });
-            }
-
+            if (isDrawing && currentTool === 'brush' && currentPath.length > 0) { drawBrushStroke({ points: currentPath, color: brushColor, size: brushSize }); }
             measurements.forEach((m, index) => drawMeasurementLine(m, index));
         }
         
@@ -488,9 +513,7 @@
             ctx.lineJoin = 'round';
             ctx.beginPath();
             ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
-            for (let i = 1; i < stroke.points.length; i++) {
-                ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
-            }
+            for (let i = 1; i < stroke.points.length; i++) { ctx.lineTo(stroke.points[i].x, stroke.points[i].y); }
             ctx.stroke();
         }
 
@@ -506,15 +529,12 @@
             ctx.fillStyle = color;
             ctx.lineWidth = (index === hoveredMeasurementIndex && currentTool === 'measure') ? LINE_WIDTH + 2 : LINE_WIDTH;
             ctx.font = `bold ${TEXT_SIZE}px Inter`;
-            
             const angle = Math.atan2(endY - startY, endX - startX);
             const perpAngle = angle + Math.PI / 2;
-
             const cap1_x1 = startX + CAP_LENGTH * Math.cos(perpAngle); const cap1_y1 = startY + CAP_LENGTH * Math.sin(perpAngle);
             const cap1_x2 = startX - CAP_LENGTH * Math.cos(perpAngle); const cap1_y2 = startY - CAP_LENGTH * Math.sin(perpAngle);
             const cap2_x1 = endX + CAP_LENGTH * Math.cos(perpAngle); const cap2_y1 = endY + CAP_LENGTH * Math.sin(perpAngle);
             const cap2_x2 = endX - CAP_LENGTH * Math.cos(perpAngle); const cap2_y2 = endY - CAP_LENGTH * Math.sin(perpAngle);
-
             ctx.beginPath();
             if (text) {
                 const textMetrics = ctx.measureText(text);
@@ -527,13 +547,10 @@
                     ctx.moveTo(startX, startY); ctx.lineTo(gapStartX, gapStartY);
                     ctx.moveTo(gapEndX, gapEndY); ctx.lineTo(endX, endY);
                 }
-            } else {
-                ctx.moveTo(startX, startY); ctx.lineTo(endX, endY);
-            }
+            } else { ctx.moveTo(startX, startY); ctx.lineTo(endX, endY); }
             ctx.moveTo(cap1_x1, cap1_y1); ctx.lineTo(cap1_x2, cap1_y2);
             ctx.moveTo(cap2_x1, cap2_y1); ctx.lineTo(cap2_x2, cap2_y2);
             ctx.stroke();
-
             if (text) {
                 const midX = (startX + endX) / 2; const midY = (startY + endY) / 2;
                 ctx.save();
@@ -544,7 +561,6 @@
                 ctx.fillText(text, 0, 0); 
                 ctx.restore();
             }
-
             if (index === hoveredMeasurementIndex && currentTool === 'measure') {
                 const buttonPos = getDeleteButtonPosition(m);
                 ctx.beginPath();
@@ -583,7 +599,193 @@
             redrawCanvas();
         }
 
-        init();
+        initMedidas();
+
+        // --- LÓGICA DE COLLAGE (NUEVA Y ACTUALIZADA) ---
+        const collageImageLoader = document.getElementById('collage-image-loader');
+        const collageCells = document.querySelectorAll('.collage-cell');
+        const downloadCollageBtn = document.getElementById('download-collage-btn');
+        const clearCollageBtn = document.getElementById('clear-collage-btn');
+        let activeCell = null;
+        let draggedItem = null;
+
+        function setCellImage(cell, file) {
+             const reader = new FileReader();
+             reader.onload = (event) => {
+                 cell.style.backgroundImage = `url('${event.target.result}')`;
+                 cell.classList.add('has-image');
+             };
+             reader.readAsDataURL(file);
+        }
+
+        function clearCell(cell) {
+            cell.style.backgroundImage = '';
+            cell.classList.remove('has-image');
+        }
+
+        collageCells.forEach(cell => {
+            const deleteBtn = cell.querySelector('.delete-cell-btn');
+
+            cell.addEventListener('click', () => {
+                activeCell = cell;
+                collageImageLoader.click();
+            });
+
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                clearCell(cell);
+            });
+
+            cell.addEventListener('dragstart', () => {
+                draggedItem = cell;
+                setTimeout(() => cell.classList.add('dragging'), 0);
+            });
+
+            cell.addEventListener('dragend', () => {
+                draggedItem.classList.remove('dragging');
+                draggedItem = null;
+            });
+
+            cell.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                cell.classList.add('drag-over-target');
+            });
+
+            cell.addEventListener('dragleave', () => {
+                cell.classList.remove('drag-over-target');
+            });
+
+            cell.addEventListener('drop', (e) => {
+                e.preventDefault();
+                cell.classList.remove('drag-over-target');
+                
+                if (e.dataTransfer.files.length > 0) {
+                    const file = e.dataTransfer.files[0];
+                    if (file.type.startsWith('image/')) {
+                        setCellImage(cell, file);
+                    }
+                } 
+                else if (draggedItem && draggedItem !== cell) {
+                    const sourceBg = draggedItem.style.backgroundImage;
+                    const targetBg = cell.style.backgroundImage;
+                    draggedItem.style.backgroundImage = targetBg;
+                    cell.style.backgroundImage = sourceBg;
+                    
+                    const sourceHasImage = draggedItem.classList.contains('has-image');
+                    const targetHasImage = cell.classList.contains('has-image');
+                    draggedItem.classList.toggle('has-image', targetHasImage);
+                    cell.classList.toggle('has-image', sourceHasImage);
+                }
+            });
+        });
+
+        collageImageLoader.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file && activeCell) {
+                setCellImage(activeCell, file);
+            }
+            e.target.value = '';
+        });
+
+        clearCollageBtn.addEventListener('click', () => {
+            collageCells.forEach(cell => clearCell(cell));
+        });
+
+        // Descargar collage (LÓGICA ACTUALIZADA)
+        downloadCollageBtn.addEventListener('click', () => {
+            const collageCanvas = document.createElement('canvas');
+            const collageCtx = collageCanvas.getContext('2d');
+            
+            const activeCells = Array.from(document.querySelectorAll('.collage-cell.has-image'));
+            const imageCount = activeCells.length;
+
+            let finalWidth, finalHeight, segmentWidth, segmentHeight;
+            let isTwoImageHorizontalLayout = false;
+
+            if (imageCount === 2) {
+                // Para 2 imágenes, crea un collage horizontal de 2x1
+                finalWidth = 1200;
+                finalHeight = 600;
+                segmentWidth = 600;
+                segmentHeight = 600;
+                isTwoImageHorizontalLayout = true;
+            } else {
+                // Para 1, 3, o 4 imágenes, crea el collage cuadrado de 2x2
+                finalWidth = 1200;
+                finalHeight = 1200;
+                segmentWidth = 600;
+                segmentHeight = 600;
+            }
+
+            collageCanvas.width = finalWidth;
+            collageCanvas.height = finalHeight;
+            collageCtx.fillStyle = '#FFFFFF';
+            collageCtx.fillRect(0, 0, finalWidth, finalHeight);
+
+            const imagePromises = [];
+
+            if (isTwoImageHorizontalLayout) {
+                // Lógica para dibujar las 2 imágenes en formato horizontal
+                activeCells.forEach((cell, index) => {
+                    const promise = new Promise((resolve) => {
+                        const img = new Image();
+                        const bgImage = cell.style.backgroundImage;
+                        img.src = bgImage.substring(5, bgImage.length - 2);
+                        img.onload = () => {
+                            const x = index * segmentWidth;
+                            const y = 0;
+                            
+                            const hRatio = segmentWidth / img.width;
+                            const vRatio = segmentHeight / img.height;
+                            const ratio = Math.max(hRatio, vRatio);
+                            const newWidth = img.width * ratio;
+                            const newHeight = img.height * ratio;
+                            const offsetX = (segmentWidth - newWidth) / 2;
+                            const offsetY = (segmentHeight - newHeight) / 2;
+
+                            collageCtx.drawImage(img, x + offsetX, y + offsetY, newWidth, newHeight);
+                            resolve();
+                        };
+                        img.onerror = () => resolve();
+                    });
+                    imagePromises.push(promise);
+                });
+            } else {
+                // Lógica original para el grid de 2x2
+                collageCells.forEach((cell, index) => {
+                    if (cell.classList.contains('has-image')) {
+                        const promise = new Promise((resolve) => {
+                            const img = new Image();
+                            const bgImage = cell.style.backgroundImage;
+                            img.src = bgImage.substring(5, bgImage.length - 2);
+                            img.onload = () => {
+                                const x = (index % 2) * segmentWidth;
+                                const y = Math.floor(index / 2) * segmentHeight;
+                                const hRatio = segmentWidth / img.width;
+                                const vRatio = segmentHeight / img.height;
+                                const ratio = Math.max(hRatio, vRatio);
+                                const newWidth = img.width * ratio;
+                                const newHeight = img.height * ratio;
+                                const offsetX = (segmentWidth - newWidth) / 2;
+                                const offsetY = (segmentHeight - newHeight) / 2;
+                                collageCtx.drawImage(img, x + offsetX, y + offsetY, newWidth, newHeight);
+                                resolve();
+                            };
+                            img.onerror = () => resolve();
+                        });
+                        imagePromises.push(promise);
+                    }
+                });
+            }
+
+            Promise.all(imagePromises).then(() => {
+                const link = document.createElement('a');
+                link.download = 'arelyshop-collage.png';
+                link.href = collageCanvas.toDataURL('image/png');
+                link.click();
+            });
+        });
+    });
     </script>
 </body>
 </html>
