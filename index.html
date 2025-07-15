@@ -174,8 +174,13 @@
                 <div class="w-full lg:w-2/3 flex flex-col items-center">
                     <div id="canvas-container" class="bg-white rounded-lg shadow-md flex items-center justify-center relative">
                         <canvas id="canvas" width="1000" height="1000"></canvas>
-                        <div id="placeholder-text" class="absolute text-center text-slate-400 p-4 pointer-events-none">
-                            <p class="text-lg font-semibold">Arrastra y suelta una imagen aquí</p>
+                        <!-- *** MODIFICADO: Placeholder con botón de carga *** -->
+                        <div id="placeholder-text" class="absolute text-center text-slate-400 p-4 flex flex-col items-center gap-2">
+                            <p class="text-lg font-semibold pointer-events-none">Arrastra y suelta una imagen aquí</p>
+                            <span class="text-sm pointer-events-none">o</span>
+                            <label for="image-loader" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition cursor-pointer">
+                                Cargar Foto
+                            </label>
                         </div>
                     </div>
                 </div>
@@ -189,8 +194,12 @@
                 <div class="w-full lg:w-1/3 space-y-6">
                      <div class="bg-white p-6 rounded-lg shadow-md">
                         <h2 class="text-xl font-bold text-slate-800 mb-4">1. Cargar Imágenes</h2>
-                        <p class="text-slate-600 mb-4">Haz clic o arrastra una imagen a cada cuadro. Luego, arrastra entre cuadros para reordenar.</p>
+                        <p class="text-slate-600 mb-4">Haz clic en un cuadro o arrastra una imagen. Para cargar varias, usa el botón.</p>
+                        <button id="load-multiple-collage-btn" class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition">
+                            Cargar Varias Fotos
+                        </button>
                         <input type="file" id="collage-image-loader" class="hidden" accept="image/*">
+                        <input type="file" id="collage-multiple-loader" class="hidden" accept="image/*" multiple>
                     </div>
                     <div class="bg-white p-6 rounded-lg shadow-md">
                         <h2 class="text-xl font-bold text-slate-800 mb-4">2. Acciones</h2>
@@ -488,7 +497,7 @@
         function clearCanvas() {
             ctx.fillStyle = '#FFFFFF';
             ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-            if (!image) placeholderText.style.display = 'block';
+            if (!image) placeholderText.style.display = 'flex';
             updateCursor();
         }
         
@@ -603,6 +612,8 @@
 
         // --- LÓGICA DE COLLAGE (NUEVA Y ACTUALIZADA) ---
         const collageImageLoader = document.getElementById('collage-image-loader');
+        const loadMultipleCollageBtn = document.getElementById('load-multiple-collage-btn');
+        const collageMultipleLoader = document.getElementById('collage-multiple-loader');
         const collageCells = document.querySelectorAll('.collage-cell');
         const downloadCollageBtn = document.getElementById('download-collage-btn');
         const clearCollageBtn = document.getElementById('clear-collage-btn');
@@ -687,11 +698,28 @@
             e.target.value = '';
         });
 
+        loadMultipleCollageBtn.addEventListener('click', () => {
+            collageMultipleLoader.click();
+        });
+
+        collageMultipleLoader.addEventListener('change', (e) => {
+            const files = e.target.files;
+            if (!files.length) return;
+
+            const emptyCells = Array.from(collageCells).filter(cell => !cell.classList.contains('has-image'));
+            
+            for (let i = 0; i < Math.min(files.length, emptyCells.length); i++) {
+                setCellImage(emptyCells[i], files[i]);
+            }
+
+            e.target.value = '';
+        });
+
+
         clearCollageBtn.addEventListener('click', () => {
             collageCells.forEach(cell => clearCell(cell));
         });
 
-        // Descargar collage (LÓGICA ACTUALIZADA)
         downloadCollageBtn.addEventListener('click', () => {
             const collageCanvas = document.createElement('canvas');
             const collageCtx = collageCanvas.getContext('2d');
@@ -703,14 +731,12 @@
             let isTwoImageHorizontalLayout = false;
 
             if (imageCount === 2) {
-                // Para 2 imágenes, crea un collage horizontal de 2x1
                 finalWidth = 1200;
                 finalHeight = 600;
                 segmentWidth = 600;
                 segmentHeight = 600;
                 isTwoImageHorizontalLayout = true;
             } else {
-                // Para 1, 3, o 4 imágenes, crea el collage cuadrado de 2x2
                 finalWidth = 1200;
                 finalHeight = 1200;
                 segmentWidth = 600;
@@ -725,7 +751,6 @@
             const imagePromises = [];
 
             if (isTwoImageHorizontalLayout) {
-                // Lógica para dibujar las 2 imágenes en formato horizontal
                 activeCells.forEach((cell, index) => {
                     const promise = new Promise((resolve) => {
                         const img = new Image();
@@ -751,7 +776,6 @@
                     imagePromises.push(promise);
                 });
             } else {
-                // Lógica original para el grid de 2x2
                 collageCells.forEach((cell, index) => {
                     if (cell.classList.contains('has-image')) {
                         const promise = new Promise((resolve) => {
