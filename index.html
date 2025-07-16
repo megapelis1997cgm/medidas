@@ -338,25 +338,7 @@
             <div class="w-full max-w-lg mx-auto p-6 sm:p-8 bg-white rounded-xl shadow-lg space-y-6 relative overflow-hidden">
                 <div class="text-center">
                     <h1 class="text-2xl font-bold text-gray-800">Conversor Universal de Mapas</h1>
-                    <p class="text-gray-500 mt-2">Busca un lugar, pega un enlace o introduce coordenadas para convertir.</p>
-                </div>
-
-                <!-- Search Bar -->
-                <div class="space-y-2">
-                    <label for="searchInput" class="block text-sm font-medium text-gray-700">Buscar un Lugar</label>
-                    <div class="flex gap-2">
-                        <input type="text" id="map-searchInput" placeholder="Ej: Plaza 24 de Septiembre, Santa Cruz" class="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                        <button id="map-searchBtn" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-colors duration-200 flex items-center justify-center w-24">
-                            <span class="search-text">Buscar</span>
-                            <div class="loader hidden"></div>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="relative flex py-2 items-center">
-                    <div class="flex-grow border-t border-gray-200"></div>
-                    <span class="flex-shrink mx-4 text-gray-400 text-sm">O usa</span>
-                    <div class="flex-grow border-t border-gray-200"></div>
+                    <p class="text-gray-500 mt-2">Pega un enlace, introduce coordenadas o busca un lugar para convertir.</p>
                 </div>
 
                 <!-- Tabs -->
@@ -370,17 +352,41 @@
                     <!-- URL Input -->
                     <div id="map-content-url" class="map-tab-content active">
                         <label for="googleMapsUrl" class="block text-sm font-medium text-gray-700 mb-1">Enlace de Google Maps</label>
-                        <input type="url" id="googleMapsUrl" placeholder="https://maps.app.goo.gl/..." class="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                         <div class="flex gap-2">
+                            <input type="url" id="googleMapsUrl" placeholder="https://maps.app.goo.gl/..." class="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <button id="map-paste-url" class="bg-gray-200 text-gray-600 font-semibold py-2 px-4 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-4 focus:ring-gray-300 transition-colors duration-200">Pegar</button>
+                        </div>
                     </div>
                     <!-- Coordinates Input -->
                     <div id="map-content-coords" class="map-tab-content">
                         <label for="coordsInput" class="block text-sm font-medium text-gray-700 mb-1">Coordenadas (Decimal o GMS)</label>
-                        <input type="text" id="coordsInput" placeholder="Ej: 17°45'40.1&quot;S 63°10'13.1&quot;W" class="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <div class="flex gap-2">
+                            <input type="text" id="coordsInput" placeholder="Ej: 17°45'40.1&quot;S 63°10'13.1&quot;W" class="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <button id="map-paste-coords" class="bg-gray-200 text-gray-600 font-semibold py-2 px-4 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-4 focus:ring-gray-300 transition-colors duration-200">Pegar</button>
+                        </div>
                     </div>
 
-                    <button id="map-convertBtn" class="w-full bg-gray-600 text-white font-semibold py-2.5 px-4 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-4 focus:ring-gray-300 transition-colors duration-200">
-                        Convertir desde Pestaña
+                    <button id="map-getDirectionBtn" class="w-full bg-blue-600 text-white font-semibold py-2.5 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-colors duration-200">
+                        Obtener ubicación
                     </button>
+                </div>
+
+                <div class="relative flex py-2 items-center">
+                    <div class="flex-grow border-t border-gray-200"></div>
+                    <span class="flex-shrink mx-4 text-gray-400 text-sm">O</span>
+                    <div class="flex-grow border-t border-gray-200"></div>
+                </div>
+
+                <!-- Search Bar -->
+                <div class="space-y-2">
+                    <label for="map-searchInput" class="block text-sm font-medium text-gray-700">Buscar un Lugar</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="map-searchInput" placeholder="Ej: Plaza 24 de Septiembre, Santa Cruz" class="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <button id="map-searchBtn" class="bg-gray-600 text-white font-semibold py-2 px-4 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-4 focus:ring-gray-300 transition-colors duration-200 flex items-center justify-center w-24">
+                            <span class="search-text">Buscar</span>
+                            <div class="loader hidden"></div>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Results Section -->
@@ -1201,7 +1207,7 @@
             const searchBtn = document.getElementById('map-searchBtn');
             const searchBtnText = searchBtn.querySelector('.search-text');
             const searchLoader = searchBtn.querySelector('.loader');
-            const convertBtn = document.getElementById('map-convertBtn');
+            const getDirectionBtn = document.getElementById('map-getDirectionBtn');
             const googleMapsUrlInput = document.getElementById('googleMapsUrl');
             const coordsInput = document.getElementById('coordsInput');
             const resultsDiv = document.getElementById('map-results');
@@ -1212,12 +1218,14 @@
             const tabCoords = document.getElementById('map-tab-coords');
             const contentUrl = document.getElementById('map-content-url');
             const contentCoords = document.getElementById('map-content-coords');
+            const pasteUrlBtn = document.getElementById('map-paste-url');
+            const pasteCoordsBtn = document.getElementById('map-paste-coords');
 
             let activeTab = 'url';
 
             searchBtn.addEventListener('click', handleLocationSearch);
             searchInput.addEventListener('keypress', (e) => e.key === 'Enter' && handleLocationSearch());
-            convertBtn.addEventListener('click', handleTabConversion);
+            getDirectionBtn.addEventListener('click', handleTabConversion);
             googleMapsUrlInput.addEventListener('keypress', (e) => e.key === 'Enter' && handleTabConversion());
             coordsInput.addEventListener('keypress', (e) => e.key === 'Enter' && handleTabConversion());
             
@@ -1227,6 +1235,22 @@
 
             tabUrl.addEventListener('click', () => switchTab('url'));
             tabCoords.addEventListener('click', () => switchTab('coords'));
+            
+            pasteUrlBtn.addEventListener('click', () => pasteFromClipboard(googleMapsUrlInput));
+            pasteCoordsBtn.addEventListener('click', () => pasteFromClipboard(coordsInput));
+
+            async function pasteFromClipboard(targetInput) {
+                try {
+                    const text = await navigator.clipboard.readText();
+                    if (text) {
+                        targetInput.value = text;
+                        targetInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                } catch (err) {
+                    console.error('Failed to read clipboard contents: ', err);
+                    showError('paste-failed');
+                }
+            }
 
             async function handleLocationSearch() {
                 const query = searchInput.value.trim();
@@ -1367,7 +1391,6 @@
                     goButton.rel = 'noopener noreferrer';
                     goButton.className = 'px-4 py-1.5 text-sm font-semibold text-white rounded-md shadow-sm transition-colors duration-200 ' + link.color;
                     goButton.textContent = 'Ir';
-                    goButton.addEventListener('click', (e) => { copyToClipboard(link.url); });
                     const copyButton = document.createElement('button');
                     copyButton.title = 'Copiar enlace';
                     copyButton.className = 'p-1.5 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors';
@@ -1443,6 +1466,9 @@
                         break;
                     case 'search-failed':
                         msg = '<strong>La búsqueda falló.</strong> Por favor, revisa tu conexión a internet e inténtalo de nuevo.';
+                        break;
+                    case 'paste-failed':
+                        msg = '<strong>No se pudo pegar.</strong> Revisa los permisos del portapapeles de tu navegador o pégalo manually.';
                         break;
                 }
                 errorText.innerHTML = msg;
