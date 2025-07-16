@@ -23,7 +23,7 @@
             border: 3px dashed #cbd5e1; /* slate-300 */
             transition: border-color 0.3s, background-color 0.3s;
         }
-        #canvas-container.drag-over, #precios-canvas-container.drag-over {
+        #canvas-container.drag-over, #precios-previews-container.drag-over {
             border-color: #3b82f6; /* blue-500 */
             background-color: #eff6ff; /* blue-50 */
         }
@@ -94,7 +94,19 @@
         .delete-cell-btn:hover { background-color: #dc2626; transform: scale(1.1); }
 
         /* Estilos Precios */
-         #precios-previews-container {
+        #precios-previews-container.is-placeholder {
+            width: 100%;
+            max-width: 600px;
+            aspect-ratio: 1 / 1;
+            border: 3px dashed #cbd5e1;
+            background-color: #fff;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: border-color 0.3s, background-color 0.3s;
+        }
+        #precios-previews-container {
             width: 100%;
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
@@ -274,9 +286,13 @@
                 </div>
                 <!-- Columna del Canvas (Precios) -->
                 <div class="w-full lg:w-2/3 flex flex-col items-center">
-                    <div id="precios-previews-container" class="bg-white rounded-lg shadow-md p-4">
-                        <div id="precios-placeholder-text" class="w-full text-center text-slate-400 p-4">
-                            <p class="text-lg font-semibold">Sube una o más imágenes para empezar</p>
+                    <div id="precios-previews-container" class="is-placeholder">
+                        <div id="precios-placeholder-text" class="w-full text-center text-slate-400 p-4 flex flex-col items-center gap-2">
+                            <p class="text-lg font-semibold pointer-events-none">Sube una o más imágenes para empezar</p>
+                             <span class="text-sm pointer-events-none">o</span>
+                            <label for="precios-image-loader" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition cursor-pointer">
+                                Cargar Foto(s)
+                            </label>
                         </div>
                     </div>
                 </div>
@@ -967,11 +983,11 @@
 
             function drawAll() {
                 if (priceImages.length === 0) {
-                    placeholder.style.display = 'block';
+                    previewsContainer.classList.add('is-placeholder');
                     downloadBtn.disabled = true;
                     clearBtn.disabled = true;
                 } else {
-                    placeholder.style.display = 'none';
+                    previewsContainer.classList.remove('is-placeholder');
                     downloadBtn.disabled = false;
                     clearBtn.disabled = false;
                 }
@@ -1028,7 +1044,14 @@
 
             function clearAll() {
                 priceImages = [];
-                previewsContainer.innerHTML = '';
+                previewsContainer.innerHTML = `
+                    <div id="precios-placeholder-text" class="w-full text-center text-slate-400 p-4 flex flex-col items-center gap-2">
+                            <p class="text-lg font-semibold pointer-events-none">Sube una o más imágenes para empezar</p>
+                             <span class="text-sm pointer-events-none">o</span>
+                            <label for="precios-image-loader" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition cursor-pointer">
+                                Cargar Foto(s)
+                            </label>
+                    </div>`;
                 priceInput.value = '';
                 watermarkInput.value = 'ArelyShop';
                 imageLoader.value = '';
